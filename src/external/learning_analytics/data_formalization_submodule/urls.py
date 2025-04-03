@@ -1,5 +1,5 @@
 from django.urls import path
-from src.external.learning_analytics.forecasting_module.views import (
+from src.external.learning_analytics.data_formalization_submodule.views import (
     SpecialityGetView,
     SpecialitySendView,
     SpecialityPutView,

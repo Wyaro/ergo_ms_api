@@ -8,7 +8,7 @@ from rest_framework.serializers import (
 )
 
 # Импорт модели Technology из приложения learning_analytics
-from src.external.learning_analytics.forecasting_module.models import (
+from src.external.learning_analytics.data_formalization_submodule.models import (
     Speciality,                 # Модель специальностией
     Discipline,                 # Модель дисциплины
     AcademicCompetenceMatrix,   # Модель матрицы академических компетенций

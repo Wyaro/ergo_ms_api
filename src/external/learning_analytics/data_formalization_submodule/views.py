@@ -8,21 +8,21 @@ from src.core.utils.database.main import OrderedDictQueryExecutor
 from drf_yasg.utils import swagger_auto_schema # type: ignore
 from drf_yasg import openapi # type: ignore
 
-from src.external.learning_analytics.forecasting_module.models import(
+from src.external.learning_analytics.data_formalization_submodule.models import(
     Speciality,
     Discipline,
     AcademicCompetenceMatrix,
     CompetencyProfileOfVacancy
 )
 
-from src.external.learning_analytics.forecasting_module.serializers import(
+from src.external.learning_analytics.data_formalization_submodule.serializers import(
     SpecialitySerializer,
     DisciplineSerializer,
     AcademicCompetenceMatrixSerializer,
     CompetencyProfileOfVacancySerializer
 )
 
-from src.external.learning_analytics.forecasting_module.scripts import(
+from src.external.learning_analytics.data_formalization_submodule.scripts import(
     get_specialities,
     get_disciplines,
     get_academicCompetenceMatrix,
