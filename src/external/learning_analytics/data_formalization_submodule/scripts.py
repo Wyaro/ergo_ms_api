@@ -27,7 +27,7 @@ def get_specialities(speciality_id: int = None):
                 education_duration,
                 year_of_admission
             from
-                forecasting_module_speciality
+                learning_analytics_data_formalization_submodule_speciality
             where id = %s
             """,
             (speciality_id,),  # Параметр для подстановки в SQL-запрос
@@ -38,7 +38,7 @@ def get_specialities(speciality_id: int = None):
             select
                 *
             from
-                forecasting_module_speciality
+                learning_analytics_data_formalization_submodule_speciality
             """,
             (),  # Пустой кортеж параметров, так как запрос не требует параметров
         )
@@ -69,7 +69,7 @@ def get_disciplines(discipline_id: int = None):
                 controle_work_hours,
                 competencies
             from
-                forecasting_module_discipline
+                learning_analytics_data_formalization_submodule_discipline
             where id = %s
             """,
             (discipline_id,),  # Параметр для подстановки в SQL-запрос
@@ -80,7 +80,7 @@ def get_disciplines(discipline_id: int = None):
             select
                 *
             from
-                forecasting_module_discipline
+                learning_analytics_data_formalization_submodule_discipline
             """,
             (),  # Пустой кортеж параметров, так как запрос не требует параметров
         )
@@ -107,7 +107,7 @@ def get_academicCompetenceMatrix(matrix_id: int = None):
                 discipline_list,
                 technology_stack
             from
-                forecasting_module_academiccompetencematrix
+                learning_analytics_data_formalization_submodule_academiccompetencematrix
             where id = %s
             """,
             (matrix_id,),  # Параметр для подстановки в SQL-запрос
@@ -118,7 +118,7 @@ def get_academicCompetenceMatrix(matrix_id: int = None):
             select
                 *
             from
-                forecasting_module_academiccompetencematrix
+                learning_analytics_data_formalization_submodule_academiccompetencematrix
             """,
             (),  # Пустой кортеж параметров, так как запрос не требует параметров
         )
@@ -148,7 +148,7 @@ def get_competencyProfileOfVacancy(cp_id: int = None, employer_id: int = None):
                 technology_stack,
                 descr
             from
-                forecasting_module_competencyprofileofvacancy
+                learning_analytics_data_formalization_submodule_competencyprofileofvacancy
             where id = %s
             """,
             (cp_id,),
@@ -164,7 +164,7 @@ def get_competencyProfileOfVacancy(cp_id: int = None, employer_id: int = None):
                 technology_stack,
                 descr
             from
-                forecasting_module_competencyprofileofvacancy
+                learning_analytics_data_formalization_submodule_competencyprofileofvacancy
             where employer_id = %s
             """,
             (employer_id,),
@@ -175,7 +175,7 @@ def get_competencyProfileOfVacancy(cp_id: int = None, employer_id: int = None):
             select
                 *
             from
-                forecasting_module_competencyprofileofvacancy
+                learning_analytics_data_formalization_submodule_competencyprofileofvacancy
             """,
             (),
         )
