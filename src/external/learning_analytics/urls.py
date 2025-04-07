@@ -14,7 +14,8 @@ from src.external.learning_analytics.views import (
     TechnologyGetView,
     TechnologyPutView,
     TechnologyDeleteView,
-    DatabaseTablesView
+    DatabaseTablesView,
+    ClearTablesView
 )
 
 urlpatterns = [
@@ -31,4 +32,5 @@ urlpatterns = [
     path('employers_put/<int:pk>/', EmployerPutView.as_view(), name='employers_put'),
     path('employers_delete/<int:pk>/', EmployerDeleteView.as_view(), name='employers_delete'),
     path('tables/', DatabaseTablesView.as_view(), name='database-tables'),
+    path('tables/clear/', ClearTablesView.as_view(), name='clear-tables'),
 ]

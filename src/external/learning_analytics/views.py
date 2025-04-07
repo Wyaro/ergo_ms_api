@@ -778,7 +778,8 @@ from src.external.learning_analytics.methods import (
     get_tables_info, 
     handle_db_errors,
     get_table_info,
-    check_table_exists
+    check_table_exists,
+    clear_analytics_tables
 )
 
 class DatabaseTablesView(APIView):
@@ -850,4 +851,24 @@ class DatabaseTablesView(APIView):
                     return Response({'tables': tables_data})
         except Exception as e:
             logger.error(f"Error fetching table data: {str(e)}")
+            raise
+
+class ClearTablesView(APIView):
+    @swagger_auto_schema(
+        operation_description="Очистка всех таблиц аналитического модуля",
+        responses={
+            200: "Таблицы успешно очищены",
+            500: "Ошибка при очистке таблиц"
+        }
+    )
+    @handle_db_errors
+    def post(self, request):
+        try:
+            with connection.cursor() as cursor:
+                clear_analytics_tables(cursor)
+                return Response({
+                    'message': 'Все таблицы успешно очищены'
+                }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error clearing tables: {str(e)}")
             raise

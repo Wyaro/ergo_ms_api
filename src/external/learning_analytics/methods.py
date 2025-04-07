@@ -84,3 +84,40 @@ def get_tables_info(cursor):
     except Exception as e:
         logger.error(f"Error in get_tables_info: {str(e)}")
         raise
+
+@handle_db_errors
+def clear_analytics_tables(cursor):
+    """
+    Очищает все таблицы аналитического модуля и сбрасывает их sequences.
+    """
+    try:
+        # Получаем список таблиц модуля
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name LIKE 'learning_analytics_%%'
+        """)
+        tables = cursor.fetchall()
+        
+        # Отключаем проверку foreign key для безопасной очистки
+        cursor.execute("SET CONSTRAINTS ALL DEFERRED")
+        
+        for table in tables:
+            table_name = table[0]
+            # Очищаем таблицу
+            cursor.execute(f'TRUNCATE TABLE "{table_name}" CASCADE')
+            # Сбрасываем sequence если она существует
+            cursor.execute(f"""
+                SELECT setval(
+                    pg_get_serial_sequence('{table_name}', 'id'),
+                    1,
+                    false
+                )
+            """)
+        
+        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+        return True
+    except Exception as e:
+        logger.error(f"Error in clear_analytics_tables: {str(e)}")
+        raise
