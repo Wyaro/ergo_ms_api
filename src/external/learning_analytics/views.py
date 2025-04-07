@@ -25,7 +25,26 @@ from src.core.utils.database.main import OrderedDictQueryExecutor
 from drf_yasg.utils import swagger_auto_schema # type: ignore
 from drf_yasg import openapi # type: ignore
 from django.db import connection
+from django.core.cache import cache
+from django.db.models import Count
+from functools import wraps
+import logging
 
+logger = logging.getLogger(__name__)
+
+def handle_db_errors(func):
+    """Декоратор для обработки ошибок БД"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Database error in {func.__name__}: {str(e)}")
+            return Response(
+                {'error': 'Internal server error'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    return wrapper
 
 # Представление данных для удаления (DELETE) работодателей
 class EmployerDeleteView(BaseAPIView):
@@ -755,7 +774,16 @@ class TechnologySendView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+from src.external.learning_analytics.methods import (
+    get_tables_info, 
+    handle_db_errors,
+    get_table_info,
+    check_table_exists
+)
+
 class DatabaseTablesView(APIView):
+    CACHE_TIMEOUT = 60 * 5  # 5 минут
+
     @swagger_auto_schema(
         operation_description="Получение списка таблиц базы данных или данных конкретной таблицы",
         manual_parameters=[
@@ -773,42 +801,30 @@ class DatabaseTablesView(APIView):
             500: "Ошибка базы данных"
         }
     )
+    @handle_db_errors
     def get(self, request):
         table_name = request.query_params.get('table')
+
+        if table_name:
+            cache_key = f'table_data_{table_name}'
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                return Response(cached_data)
 
         try:
             with connection.cursor() as cursor:
                 if table_name:
-                    # Проверяем существование таблицы
-                    cursor.execute("""
-                        SELECT EXISTS (
-                            SELECT 1 
-                            FROM information_schema.tables 
-                            WHERE table_name = %s
-                        )
-                    """, [table_name])
-                    table_exists = cursor.fetchone()[0]
-                    
-                    if not table_exists:
+                    if not check_table_exists(cursor, table_name):
                         return Response(
                             {'error': 'Table not found'},
                             status=status.HTTP_404_NOT_FOUND
                         )
 
-                    # Получаем информацию о колонках
-                    cursor.execute("""
-                        SELECT column_name, data_type, is_nullable
-                        FROM information_schema.columns 
-                        WHERE table_name = %s
-                        ORDER BY ordinal_position
-                    """, [table_name])
-                    columns_info = cursor.fetchall()
+                    columns_info = get_table_info(cursor, table_name)
                     
-                    # Получаем данные из таблицы
                     cursor.execute(f'SELECT * FROM "{table_name}"')
                     rows = cursor.fetchall()
                     
-                    # Формируем данные для ответа
                     columns = [
                         {
                             'name': col[0],
@@ -822,46 +838,16 @@ class DatabaseTablesView(APIView):
                         for row in rows
                     ]
 
-                    return Response({
+                    response_data = {
                         'table_name': table_name,
                         'columns': columns,
                         'rows': formatted_rows
-                    })
+                    }
+                    cache.set(cache_key, response_data, self.CACHE_TIMEOUT)
+                    return Response(response_data)
                 else:
-                    # Сначала получаем список таблиц с количеством колонок
-                    cursor.execute("""
-                        WITH table_info AS (
-                            SELECT 
-                                table_name,
-                                (SELECT COUNT(*) 
-                                 FROM information_schema.columns 
-                                 WHERE table_schema = 'public' 
-                                 AND table_name = t.table_name) as column_count
-                            FROM information_schema.tables t
-                            WHERE table_schema = 'public'
-                            AND table_name LIKE 'learning_analytics_%%'
-                        )
-                        SELECT table_name, column_count
-                        FROM table_info;
-                    """)
-                    tables_info = cursor.fetchall()
-                    
-                    # Теперь для каждой таблицы получаем количество записей
-                    result_tables = []
-                    for table in tables_info:
-                        table_name = table[0]
-                        cursor.execute(f'SELECT COUNT(*) FROM "{table_name}"')
-                        row_count = cursor.fetchone()[0]
-                        result_tables.append({
-                            'name': table_name,
-                            'columns_count': table[1],
-                            'rows_count': row_count
-                        })
-                    
-                    return Response({'tables': result_tables})
+                    tables_data = get_tables_info(cursor)
+                    return Response({'tables': tables_data})
         except Exception as e:
-            print("Database error:", str(e))  # Отладочный вывод
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.error(f"Error fetching table data: {str(e)}")
+            raise
