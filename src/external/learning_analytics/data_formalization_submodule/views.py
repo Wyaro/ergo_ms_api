@@ -11,15 +11,17 @@ from drf_yasg import openapi # type: ignore
 from src.external.learning_analytics.data_formalization_submodule.models import(
     Speciality,
     Discipline,
-    AcademicCompetenceMatrix,
-    CompetencyProfileOfVacancy
+    ACM,
+    VCM,
+    UCM  
 )
 
 from src.external.learning_analytics.data_formalization_submodule.serializers import(
     SpecialitySerializer,
     DisciplineSerializer,
     AcademicCompetenceMatrixSerializer,
-    CompetencyProfileOfVacancySerializer
+    CompetencyProfileOfVacancySerializer,
+    UserCompetenceMatrixSerializer
 )
 
 from src.external.learning_analytics.data_formalization_submodule.scripts import(
@@ -1026,5 +1028,225 @@ class AcademicCompetenceMatrixDeleteView(BaseAPIView):
 
         return Response(
             {"message": "Матрица академических компетенций успешно удалена"},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+
+
+# Представление данных для получения информации об пользовательских матрицах компетенций
+class UserCompetenceMatrixGetView(BaseAPIView):
+    @swagger_auto_schema(
+        operation_description="Получение информации об пользовательской матрице компетенций. Если указан параметр 'id', возвращается конкретная матрица. Если параметр 'id' не указан, возвращаются все существующие матрицы.",
+        manual_parameters=[
+            openapi.Parameter(
+                'id', # Имя параметра
+                openapi.IN_QUERY, # Параметр передается в query-строке
+                type = openapi.TYPE_INTEGER, # Тип параметра (целочисленынй)
+                required=False,
+                description="Идентификатор пользовательской матрицы компетенций (опционально)", # Описание параметра
+            )
+        ],
+        responses={
+            200: "Информация о матрицах пользовательских компетенций", # Успешный ответ
+            400: "Ошибка" # Ошибка
+        }
+    )
+    def get(self, request):
+        """
+        Обработка GET-запроса для получения информации о матрицах пользовательских компетенций.
+        В случае передачи параметра 'id', возвращает данные о матрицах пользовательских компетенций.
+        Если параметр 'id' не передан - возвращаются все данные о матрицах пользовательских компетенций.
+        """
+
+        matrix_id = request.query_params.get('id') # Полчаем параметр 'id' из query-строки
+
+        if matrix_id:
+            # Если передан 'id', получаем данные о конкретной дисциплине
+            matrix = OrderedDictQueryExecutor.fetchall(
+                get_userCompetenceMatrix, matrix_id = matrix_id
+            )
+            if not matrix:
+                # Если дисциплина не обнаружена - возвращаем ошибку 404
+                return Response(
+                    {"message": "Матрица пользовательских компетенций с указанным ID не найдена"},
+                    status = status.HTTP_404_NOT_FOUND
+                )
+            response_data = {
+                "data": matrix,
+                "message": "Матрица пользовательских компетенций получена успешно."
+            }
+        else:
+            # Если 'id' не передан, получаем данные обо всех специальностях
+            matrices = OrderedDictQueryExecutor.fetchall(get_userCompetenceMatrix)
+            # Формируем успешный ответ с данными обо всех специальностях
+            response_data = {
+                "data": matrices,
+                "message": "Все матрицы пользовательских компетенций получены успешно"
+            }
+
+        # Возвращаем ответ с данными и статусом 200
+        return Response(response_data, status=status.HTTP_200_OK)
+
+# Представление данных для создания (POST) матрицы пользовательских компетенций
+class UserCompetenceMatrixSendView(BaseAPIView):
+    @swagger_auto_schema(
+        operation_description="Проверка ввода матрицы пользовательских компетенций",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT, # Тип тела запроса (объект JSON)
+            properties={
+                'user_id': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,  # Тип поля (целочисленный)
+                    description='Код специальности'  # Описание поля
+                ),
+                'competencies_stack': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,  # Тип поля (объект)
+                    description='Перечень изучаемых дисциплин'  # Описание поля
+                ),
+                'technology_stack': openapi.Schema(
+                    type=openapi.TYPE_OBJECT, # Тип поля (строка)
+                    description='Перечень изучаемых технологий в течение времени' # Описание поля
+                ),                
+            },
+            required=['user_id', 'competencies_stack', 'technology_stack'], # Обязательные поля
+            example={
+                "code": "ПК-3.2",
+                "name": "Разработка программного обеспечения",
+                "description": "Способность разрабатывать компоненты программных комплексов и баз данных, использовать современные инструменты программирования."
+                }
+        ),
+            responses={
+                201: "Матрица пользовательских компетенций успешно сохранена", # Успешный ответ
+                400: "Произошла ошибка" # Ошибка
+            },
+        )
+    def post(self, request):
+            """
+            Обрабатывает POST-запрос для создания новой матрицы академических компетенций.
+            Проверяет валидность данных и сохраняет матрицы академических компетенций в базе данных.
+            """
+
+            serializer = UserCompetenceMatrixSerializer(data=request.data) # Создаем сериализатор с данными из запроса
+
+            if serializer.is_valid():
+                # Если данные валидны, сохраняем дисциплину
+                serializer.save()
+                # Возвращаем успешным ответ
+                successful_response = Response(
+                    {"message": "Матрица пользовательских компетенций сохранена успешно"},
+                    status= status.HTTP_200_OK
+                )
+                return successful_response
+            
+            # Если данные не валидны, преобразуем ошибки в словарь и возвращаем ошибку 400
+            errors = parse_errors_to_dict(serializer.errors)
+            return Response(
+                errors,
+                status=status.HTTP_400_BAD_REQUEST
+            ) 
+
+# Представление данных для обновления (PUT) матрицы пользовательских компетенций
+class UserCompetenceMatrixPutView(BaseAPIView):
+    @swagger_auto_schema(
+        operation_description="Обновление информации о матрице пользовательских компетенций",
+        request_body=UserCompetenceMatrixSerializer,
+        manual_parameters=[
+            openapi.Parameter(
+                'id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=True,
+                description="Идентификатор матрицы пользовательских компетенций"
+            )
+        ],
+        responses={
+            200: "Информация о матрице пользовательских компетенций обновлена успешно",
+            400: "Ошибка валидации данных",
+            404: "Матрица пользовательских компетенций не найдена"
+        }
+    )
+    def put(self, request):
+        """
+        Обновление информации о матрице пользовательских компетенций (обработка PUT-запроса).
+        """
+        matrix_id = request.query_params.get('id')
+        if not matrix_id:
+            return Response(
+                {"message": "Идентификатор матрицы пользовательских компетенций не указан"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            matrix = UCM.objects.get(id=matrix_id)
+        except UCM.DoesNotExist:
+            return Response(
+                {"message": "Матрица пользовательских компетенций с указанным ID не найдена"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = UserCompetenceMatrixSerializer(matrix, data=request.data, partial=False)
+        if not serializer.is_valid():
+            return Response(
+                {"message": "Ошибка валидации данных", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Обновляем данные специальности
+        serializer.save()
+    
+        # Получаем обновленные данные
+        updated_matrix = OrderedDictQueryExecutor.fetchall(
+            get_userCompetenceMatrix, matrix_id=matrix_id
+        )
+
+        response_data = {
+            "data": updated_matrix,
+            "message": "Информация о матрице пользовательских компетенций обновлена успешно"
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+# Представление данных для удаления (DELETE) матрицы пользовательских компетенций
+class UserCompetenceMatrixDeleteView(BaseAPIView):
+    @swagger_auto_schema(
+        operation_description="Удаление матрицы пользовательских компетенций по идентификатору",
+        manual_parameters=[
+            openapi.Parameter(
+                'id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=True,
+                description="Идентификатор матрицы пользовательских компетенций"
+            )
+        ],
+        responses={
+            204: "Матрица пользовательских компетенций успешно удалена",  # Успешный ответ (без содержимого)
+            400: "Идентификатор матрицы пользовательских компетенций не указан",  # Ошибка
+            404: "Матрица пользовательских компетенций не найдена"  # Ошибка
+        }
+    )
+    def delete(self, request):
+        """
+        Обработка DELETE-запроса для удаления матрицы пользовательских компетенций.
+        """
+        matrix_id = request.query_params.get('id')  # Получаем параметр 'id' из query-строки
+
+        if not matrix_id:
+            return Response(
+                {"message": "Идентификатор матрицы пользовательских компетенций не указан"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            matrix = UCM.objects.get(id=matrix_id)  # Ищем матрицу пользовательских компетенций по ID
+        except UCM.DoesNotExist:
+            return Response(
+                {"message": "Матрица пользовательских компетенций с указанным ID не найдена"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        matrix.delete()  # Удаляем матрицу пользовательских компетенций из базы данных
+
+        return Response(
+            {"message": "Матрица пользовательских компетенций успешно удалена"},
             status=status.HTTP_204_NO_CONTENT
         )

@@ -21,6 +21,14 @@ from src.external.learning_analytics.scripts import (
     get_employers
 )
 
+from src.external.learning_analytics.methods import (
+    get_tables_info, 
+    handle_db_errors,
+    get_table_info,
+    check_table_exists,
+    clear_analytics_tables
+)
+
 from src.core.utils.database.main import OrderedDictQueryExecutor
 from drf_yasg.utils import swagger_auto_schema # type: ignore
 from drf_yasg import openapi # type: ignore
@@ -774,13 +782,6 @@ class TechnologySendView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-from src.external.learning_analytics.methods import (
-    get_tables_info, 
-    handle_db_errors,
-    get_table_info,
-    check_table_exists,
-    clear_analytics_tables
-)
 
 class DatabaseTablesView(APIView):
     CACHE_TIMEOUT = 60 * 5  # 5 минут
@@ -872,3 +873,5 @@ class ClearTablesView(APIView):
         except Exception as e:
             logger.error(f"Error clearing tables: {str(e)}")
             raise
+
+

@@ -11,8 +11,9 @@ from rest_framework.serializers import (
 from src.external.learning_analytics.data_formalization_submodule.models import (
     Speciality,                 # Модель специальностией
     Discipline,                 # Модель дисциплины
-    AcademicCompetenceMatrix,   # Модель матрицы академических компетенций
-    CompetencyProfileOfVacancy  # Модель компетентностного профиля вакансии
+    ACM,   # Модель матрицы академических компетенций
+    VCM,  # Модель компетентностного профиля вакансии
+    UCM,  # Модель матрицы пользовательских компетенций
 )
 
 # Создание сериализатора для модели Speciality
@@ -75,7 +76,7 @@ class DisciplineSerializer(ModelSerializer):
 class AcademicCompetenceMatrixSerializer(ModelSerializer):
     class Meta:
         # Указываем модель, с которой работает сериализатор
-        model = AcademicCompetenceMatrix
+        model = ACM
         # Указываем поля модели, которые будут сериализованы/десериализованы
         fields = ['speciality_id', 'discipline_list', 'technology_stack']
 
@@ -100,7 +101,7 @@ class AcademicCompetenceMatrixSerializer(ModelSerializer):
 class CompetencyProfileOfVacancySerializer(ModelSerializer):
     class Meta:
         # Указываем модель, с которой будет работать сериализатор
-        model = CompetencyProfileOfVacancy
+        model = VCM
         # Указываем поля модели, которые будут серилаизованы/десериализованы
         fields = ['vacancy_name', 'employer_id', 'competencies_stack', 'technology_stack', 'description']
 
@@ -122,3 +123,28 @@ class CompetencyProfileOfVacancySerializer(ModelSerializer):
             )
 
             return CompetencyProfileOfVacancy # Возвращаем созданный объект
+
+# Создание сериализатора для модели UserCompetenceMatrix
+class UserCompetenceMatrixSerializer(ModelSerializer):
+    class Meta:
+        # Указываем модель, с которой будет работать сериализатор
+        model = UCM
+        # Указываем поля модели, которые будут сериализованы/десериализованы
+        fields = ['user_id', 'competencies_stack', 'technology_stack']
+
+        # Метод для создания нового объекта UserCompetenceMatrix
+        def create(self, validated_data):
+            """
+            Создает новый объект UserCompetenceMatrix на основе валидированных данных
+
+            :param validated_data: Данные, прошедшие валидацию
+            :return: Созданный объект UserCompetenceMatrix
+            """
+            user_competence_matrix = UCM.objects.create(
+                user_id=validated_data['user_id'],                      # Устанавливаем id пользователя
+                competencies_stack=validated_data['competencies_stack'], # Устанавливаем стек компетенций пользователя
+                technology_stack=validated_data['technology_stack'],     # Устанавливаем стек технологий пользователя    # Устанавливаем ссылки на портфолио
+            )
+
+            return user_competence_matrix # Возвращаем созданный объект
+

@@ -107,7 +107,7 @@ def get_academicCompetenceMatrix(matrix_id: int = None):
                 discipline_list,
                 technology_stack
             from
-                learning_analytics_data_formalization_submodule_academiccompetencematrix
+                learning_analytics_data_formalization_submodule_acm
             where id = %s
             """,
             (matrix_id,),  # Параметр для подстановки в SQL-запрос
@@ -118,7 +118,7 @@ def get_academicCompetenceMatrix(matrix_id: int = None):
             select
                 *
             from
-                learning_analytics_data_formalization_submodule_academiccompetencematrix
+                learning_analytics_data_formalization_submodule_acm
             """,
             (),  # Пустой кортеж параметров, так как запрос не требует параметров
         )
@@ -148,7 +148,7 @@ def get_competencyProfileOfVacancy(cp_id: int = None, employer_id: int = None):
                 technology_stack,
                 descr
             from
-                learning_analytics_data_formalization_submodule_competencyprofileofvacancy
+                learning_analytics_data_formalization_submodule_vcm
             where id = %s
             """,
             (cp_id,),
@@ -164,7 +164,7 @@ def get_competencyProfileOfVacancy(cp_id: int = None, employer_id: int = None):
                 technology_stack,
                 descr
             from
-                learning_analytics_data_formalization_submodule_competencyprofileofvacancy
+                learning_analytics_data_formalization_submodule_vcm
             where employer_id = %s
             """,
             (employer_id,),
@@ -175,7 +175,46 @@ def get_competencyProfileOfVacancy(cp_id: int = None, employer_id: int = None):
             select
                 *
             from
-                learning_analytics_data_formalization_submodule_competencyprofileofvacancy
+                learning_analytics_data_formalization_submodule_vcm
             """,
             (),
+        )
+
+
+# SQL-запрос для получения информации о пользовательской матрице компетенций
+def get_userCompetenceMatrix(matrix_id: int = None):
+    """
+    Возвращает SQL-запрос и параметры для получения данных о пользовательской матрице компетенций.
+
+    Args:
+        matrix_id (int, optional): ID матрицы. Если не указан, возвращает запрос для всех матриц.
+
+    Returns:
+        tuple: Кортеж, содержащий SQL-запрос и параметры для выполнения запроса.
+               - SQL-запрос (str): Запрос для выборки данных о матрицах компетенций.
+               - Параметры (tuple): Кортеж с параметрами для запроса (matrix_id, если указан).
+    """
+    if matrix_id is not None:
+        return (
+            """
+            select
+                id,
+                user_id,
+                competencies_stack,
+                technology_stack
+            from
+                learning_analytics_data_formalization_submodule_ucm
+            where id = %s
+            """,
+            (matrix_id,),  # Параметр для подстановки в SQL-запрос
+        )
+    else:
+        return (
+            """
+            select
+                *
+            from
+                learning_analytics_data_formalization_submodule_ucm
+            """,
+            (),  # Пустой кортеж параметров, так как запрос не требует параметров
         )

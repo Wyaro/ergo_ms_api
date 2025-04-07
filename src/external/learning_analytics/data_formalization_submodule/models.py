@@ -64,7 +64,7 @@ class Discipline(models.Model):
         verbose_name_plural = "Дисциплины"
 
 # Модель матрицы академических компетенций
-class AcademicCompetenceMatrix(models.Model):
+class ACM(models.Model):
     """
     Модель AcademicCompetenceMatrix - модель, представляющая матрицу академических компетенций, на основании
     которой в дальнейшем будет формироваться основной вектор индивидуальной траектории обучения.
@@ -93,7 +93,7 @@ class AcademicCompetenceMatrix(models.Model):
         verbose_name_plural = "Матрицы академических компетенций"
 
 # Модель компетентностного профиля вакансии
-class CompetencyProfileOfVacancy(models.Model):
+class VCM(models.Model):
     """
     Модель CompetencyProfileOfVacancy - модель, представляющая компетентностный профиль вакансии, на основании
     которой в дальнейшем будет формироваться дополнительный вектор индивидуальных траекторий обучения, соотевтствующий
@@ -124,3 +124,20 @@ class CompetencyProfileOfVacancy(models.Model):
     class Meta:
         verbose_name = "Компетентностный профиль вакансии"
         verbose_name_plural = "Компетентностные профили вакансии"
+
+class UCM(models.Model):
+    """
+    Модель UserCompentencyMatrix - модель, представляющая матрицу компетенций пользователя, на основании
+    которой в дальнейшем будет формироваться индивидуальная траектория обучения.
+    """
+
+    user_id = models.PositiveSmallIntegerField(verbose_name="ID пользователя")
+    competencies_stack = models.JSONField(verbose_name="Перечень имеющихся компетенций")
+    technology_stack = models.JSONField(verbose_name="Стек изучаемых технологий")
+
+    def __str__(self):
+        return f"Матрица компетенций пользователя {self.user}"
+    
+    class Meta:
+        verbose_name = "Матрица компетенций пользователя"
+        verbose_name_plural = "Матрицы компетенций пользователей"
