@@ -13,7 +13,8 @@ from src.external.learning_analytics.views import (
     TechnologySendView,
     TechnologyGetView,
     TechnologyPutView,
-    TechnologyDeleteView
+    TechnologyDeleteView,
+    DatabaseTablesView
 )
 
 urlpatterns = [
@@ -29,4 +30,5 @@ urlpatterns = [
     path('employers_send/', EmployerSendView.as_view(), name='employers_send'),
     path('employers_put/<int:pk>/', EmployerPutView.as_view(), name='employers_put'),
     path('employers_delete/<int:pk>/', EmployerDeleteView.as_view(), name='employers_delete'),
+    path('tables/', DatabaseTablesView.as_view(), name='database-tables'),
 ]

@@ -24,6 +24,8 @@ from src.external.learning_analytics.scripts import (
 from src.core.utils.database.main import OrderedDictQueryExecutor
 from drf_yasg.utils import swagger_auto_schema # type: ignore
 from drf_yasg import openapi # type: ignore
+from django.db import connection
+
 
 # Представление данных для удаления (DELETE) работодателей
 class EmployerDeleteView(BaseAPIView):
@@ -752,3 +754,114 @@ class TechnologySendView(APIView):
             errors,
             status=status.HTTP_400_BAD_REQUEST
         )
+
+class DatabaseTablesView(APIView):
+    @swagger_auto_schema(
+        operation_description="Получение списка таблиц базы данных или данных конкретной таблицы",
+        manual_parameters=[
+            openapi.Parameter(
+                'table',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                required=False,
+                description="Имя таблицы (опционально)"
+            )
+        ],
+        responses={
+            200: "Успешное получение данных",
+            400: "Неверное имя таблицы",
+            500: "Ошибка базы данных"
+        }
+    )
+    def get(self, request):
+        table_name = request.query_params.get('table')
+
+        try:
+            with connection.cursor() as cursor:
+                if table_name:
+                    # Проверяем существование таблицы
+                    cursor.execute("""
+                        SELECT EXISTS (
+                            SELECT 1 
+                            FROM information_schema.tables 
+                            WHERE table_name = %s
+                        )
+                    """, [table_name])
+                    table_exists = cursor.fetchone()[0]
+                    
+                    if not table_exists:
+                        return Response(
+                            {'error': 'Table not found'},
+                            status=status.HTTP_404_NOT_FOUND
+                        )
+
+                    # Получаем информацию о колонках
+                    cursor.execute("""
+                        SELECT column_name, data_type, is_nullable
+                        FROM information_schema.columns 
+                        WHERE table_name = %s
+                        ORDER BY ordinal_position
+                    """, [table_name])
+                    columns_info = cursor.fetchall()
+                    
+                    # Получаем данные из таблицы
+                    cursor.execute(f'SELECT * FROM "{table_name}"')
+                    rows = cursor.fetchall()
+                    
+                    # Формируем данные для ответа
+                    columns = [
+                        {
+                            'name': col[0],
+                            'type': col[1],
+                            'nullable': col[2] == 'YES'
+                        } for col in columns_info
+                    ]
+                    
+                    formatted_rows = [
+                        dict(zip([col['name'] for col in columns], row))
+                        for row in rows
+                    ]
+
+                    return Response({
+                        'table_name': table_name,
+                        'columns': columns,
+                        'rows': formatted_rows
+                    })
+                else:
+                    # Сначала получаем список таблиц с количеством колонок
+                    cursor.execute("""
+                        WITH table_info AS (
+                            SELECT 
+                                table_name,
+                                (SELECT COUNT(*) 
+                                 FROM information_schema.columns 
+                                 WHERE table_schema = 'public' 
+                                 AND table_name = t.table_name) as column_count
+                            FROM information_schema.tables t
+                            WHERE table_schema = 'public'
+                            AND table_name LIKE 'learning_analytics_%%'
+                        )
+                        SELECT table_name, column_count
+                        FROM table_info;
+                    """)
+                    tables_info = cursor.fetchall()
+                    
+                    # Теперь для каждой таблицы получаем количество записей
+                    result_tables = []
+                    for table in tables_info:
+                        table_name = table[0]
+                        cursor.execute(f'SELECT COUNT(*) FROM "{table_name}"')
+                        row_count = cursor.fetchone()[0]
+                        result_tables.append({
+                            'name': table_name,
+                            'columns_count': table[1],
+                            'rows_count': row_count
+                        })
+                    
+                    return Response({'tables': result_tables})
+        except Exception as e:
+            print("Database error:", str(e))  # Отладочный вывод
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
