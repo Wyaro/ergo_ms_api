@@ -9,12 +9,61 @@ from rest_framework.serializers import (
 
 # Импорт модели Technology из приложения learning_analytics
 from src.external.learning_analytics.data_formalization_submodule.models import (
+    Technology,                 # Модель технологии
+    Competency,                 # Модель компетенции
     Speciality,                 # Модель специальностией
     Discipline,                 # Модель дисциплины
-    ACM,   # Модель матрицы академических компетенций
-    VCM,  # Модель компетентностного профиля вакансии
-    UCM,  # Модель матрицы пользовательских компетенций
+    ACM,                        # Модель матрицы академических компетенций
+    VCM,                        # Модель компетентностного профиля вакансии
+    UCM,                        # Модель матрицы пользовательских компетенций
 )
+
+
+# Создание сериализатора для модели Technology
+class TechnologySerializer(ModelSerializer):
+    class Meta:
+        # Указываем модель, с которой работает сериализатор
+        model = Technology
+        # Указываем поля модели, которые будут сериализованы/десериализованы
+        fields = ['name', 'description', 'popularity', 'rating']
+
+        # Метод для создания нового объекта Technology
+        def create(self, validated_data):
+            """
+            Создает новый объект Technology на основе валидированных данных.
+            
+            :param validated_data: Данные, прошедшие валидацию
+            :return: Созданный объект Technology
+            """
+            technology = Technology.objects.create(
+                name=validated_data['name'],          # Устанавливаем имя технологии
+                description=validated_data['description'],  # Устанавливаем описание
+                popularity=validated_data['popularity'],  # Устанавливаем популярность
+                rating=validated_data['rating'],      # Устанавливаем рейтинг
+            )
+            return technology  # Возвращаем созданный объект
+
+# Создание сериализатора для модели Competency
+class CompetencySerializer(ModelSerializer):
+    class Meta:
+        # Указываем модель, с которой работает сериализатор
+        model = Competency
+        # Указываем поля модели, которые будут сериализованы/десериализованы
+        fields = [
+            'code', 'name', 'description',
+            'know_level', 'can_level', 'master_level',
+            'blooms_level', 'blooms_verbs',
+            'complexity', 'demand'
+        ]
+
+    def create(self, validated_data):
+        """
+        Создает новый объект Competency на основе валидированных данных.
+
+        :param validated_data: Данные, прошедшие валидацию
+        :return: Созданный объект Competency
+        """ 
+        return Competency.objects.create(**validated_data)
 
 # Создание сериализатора для модели Speciality
 class SpecialitySerializer(ModelSerializer):

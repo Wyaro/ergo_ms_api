@@ -1,6 +1,82 @@
 import json
 import string
 
+def get_technologies(technology_id: int = None):
+    """
+    Возвращает SQL-запрос и параметры для получения данных о технологиях.
+
+    Args:
+        technology_id (int, optional): ID технологии. Если не указан, возвращает запрос для всех технологий.
+
+    Returns:
+        tuple: Кортеж, содержащий SQL-запрос и параметры для выполнения запроса.
+               - SQL-запрос (str): Запрос для выборки данных о технологиях.
+               - Параметры (tuple): Кортеж с параметрами для запроса (technology_id, если указан).
+    """
+    if technology_id is not None:
+        return (
+            """
+            select
+                id,
+                name,
+                description,
+                popularity,
+                rating
+            from
+                learning_analytics_data_formalization_submodule_technology
+            where id = %s
+            """,
+            (technology_id,),  # Параметр для подстановки в SQL-запрос
+        )
+    else:
+        return (
+            """
+            select
+                *
+            from
+                learning_analytics_data_formalization_submodule_technology
+            """,
+            (),  # Пустой кортеж параметров, так как запрос не требует параметров
+        )
+        
+def get_competentions(competency_id: int = None):
+    """
+    Возвращает SQL-запрос и параметры для получения данных о компетенциях.
+
+    Args:
+        competency_id (int, optional): ID компетенции. Если не указан, возвращает запрос для всех компетенций.
+
+    Returns:
+        tuple: Кортеж, содержащий SQL-запрос и параметры для выполнения запроса.
+               - SQL-запрос (str): Запрос для выборки данных о компетенциях.
+               - Параметры (tuple): Кортеж с параметрами для запроса (competency_id, если указан).
+    """
+    if competency_id is not None:
+        return (
+            """
+            select
+                id,
+                code,
+                name,
+                description
+            from
+                learning_analytics_data_formalization_submodule_competency
+            where id = %s
+            """,
+            (competency_id,),  # Параметр для подстановки в SQL-запрос
+        )
+    else:
+        return (
+            """
+            select
+                *
+            from
+                learning_analytics_data_formalization_submodule_competency
+            """,
+            (),  # Пустой кортеж параметров, так как запрос не требует параметров
+        )
+
+
 # SQL-запрос для получения информации о специальностях
 def get_specialities(speciality_id: int = None):
     """
