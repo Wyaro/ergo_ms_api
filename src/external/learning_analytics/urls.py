@@ -6,10 +6,10 @@ from src.external.learning_analytics.views import (
     EmployerGetView,
     EmployerPutView,
     EmployerDeleteView,
-    CompetentionSendView,
-    CompetentionGetView,
-    CompetentionPutView,
-    CompetentionDeleteView,
+    CompetencySendView,    # Исправлено
+    CompetencyGetView,     # Исправлено
+    CompetencyPutView,     # Исправлено
+    CompetencyDeleteView,  # Исправлено
     TechnologySendView,
     TechnologyGetView,
     TechnologyPutView,
@@ -39,10 +39,10 @@ urlpatterns = [
     path('technologies_send/', TechnologySendView.as_view(), name='technologies_send'),
     path('technologies_put/<int:pk>/', TechnologyPutView.as_view(), name='technologies_put'),
     path('technologies_delete/<int:pk>/', TechnologyDeleteView.as_view(), name='technologies_delete'),
-    path('competentions/', CompetentionGetView.as_view(), name='competentions'),
-    path('competentions_send/', CompetentionSendView.as_view(), name='competentions_send'),
-    path('competentions_put/<int:pk>/', CompetentionPutView.as_view(), name='competentions_put'),
-    path('competentions_delete_/<int:pk>/', CompetentionDeleteView.as_view(), name='competentions_delete_'),
+    path('competencies/', CompetencyGetView.as_view(), name='competencies'),
+    path('competencies_send/', CompetencySendView.as_view(), name='competencies_send'),
+    path('competencies_put/<int:pk>/', CompetencyPutView.as_view(), name='competencies_put'),
+    path('competencies_delete/<int:pk>/', CompetencyDeleteView.as_view(), name='competencies_delete'),
     path('employers/', EmployerGetView.as_view(), name='employers'),
     path('employers_send/', EmployerSendView.as_view(), name='employers_send'),
     path('employers_put/<int:pk>/', EmployerPutView.as_view(), name='employers_put'),

@@ -39,19 +39,19 @@ def get_technologies(technology_id: int = None):
             (),  # Пустой кортеж параметров, так как запрос не требует параметров
         )
         
-def get_competentions(competention_id: int = None):
+def get_competentions(competency_id: int = None):
     """
     Возвращает SQL-запрос и параметры для получения данных о компетенциях.
 
     Args:
-        competention_id (int, optional): ID компетенции. Если не указан, возвращает запрос для всех компетенций.
+        competency_id (int, optional): ID компетенции. Если не указан, возвращает запрос для всех компетенций.
 
     Returns:
         tuple: Кортеж, содержащий SQL-запрос и параметры для выполнения запроса.
                - SQL-запрос (str): Запрос для выборки данных о компетенциях.
-               - Параметры (tuple): Кортеж с параметрами для запроса (competention_id, если указан).
+               - Параметры (tuple): Кортеж с параметрами для запроса (competency_id, если указан).
     """
-    if competention_id is not None:
+    if competency_id is not None:
         return (
             """
             select
@@ -60,10 +60,10 @@ def get_competentions(competention_id: int = None):
                 name,
                 description
             from
-                learning_analytics_competention
+                learning_analytics_competency
             where id = %s
             """,
-            (competention_id,),  # Параметр для подстановки в SQL-запрос
+            (competency_id,),  # Параметр для подстановки в SQL-запрос
         )
     else:
         return (
@@ -71,7 +71,7 @@ def get_competentions(competention_id: int = None):
             select
                 *
             from
-                learning_analytics_competention
+                learning_analytics_competency
             """,
             (),  # Пустой кортеж параметров, так как запрос не требует параметров
         )

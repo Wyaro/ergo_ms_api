@@ -10,7 +10,7 @@ from rest_framework.serializers import (
 # Импорт необходимых моделей
 from src.external.learning_analytics.models import (
     Technology,     # Модель технологии
-    Competention,   # Модель компетенции
+    Competency,     # Исправленное имя модели
     Employer        # Модель работодателя
 )
 
@@ -38,28 +38,27 @@ class TechnologySerializer(ModelSerializer):
             )
             return technology  # Возвращаем созданный объект
 
-# Создание сериализатора для модели Competention
-class CompetentionSerializer(ModelSerializer):
+# Создание сериализатора для модели Competency
+class CompetencySerializer(ModelSerializer):
     class Meta:
         # Указываем модель, с которой работает сериализатор
-        model = Competention
-        # Указываем поля модели,которые будут сериализованы/десериализованы
-        fields = ['code','name','description']
+        model = Competency
+        # Указываем поля модели, которые будут сериализованы/десериализованы
+        fields = [
+            'code', 'name', 'description',
+            'know_level', 'can_level', 'master_level',
+            'blooms_level', 'blooms_verbs',
+            'complexity', 'demand'
+        ]
 
-        def create(self, validated_data):
-            """
-            Создает новый объект Competention на основе валидированных данных.
+    def create(self, validated_data):
+        """
+        Создает новый объект Competency на основе валидированных данных.
 
-            :param validated_data: Данные, прошедшие валидацию
-            :return: Созданный объект Competention
-            """ 
-
-            competention = Competention.objects.create(
-                code=validated_data['code'],                # Устанавливаем код компетенции
-                name=validated_data['name'],                # Устанавливаем название компетенции
-                description=validated_data['description']   # Устанавливаем описание компетенции
-            )
-            return competention # Возвращаем созданный объект
+        :param validated_data: Данные, прошедшие валидацию
+        :return: Созданный объект Competency
+        """ 
+        return Competency.objects.create(**validated_data)
 
 # Создание сериализатора для модели Employer
 class EmployerSerializer(ModelSerializer):

@@ -5,12 +5,12 @@ from rest_framework.exceptions import NotFound
 from rest_framework import status
 from src.external.learning_analytics.models import (
     Technology,
-    Competention,
+    Competency,    # Исправлено с Competention
     Employer
 )
 from src.external.learning_analytics.serializers import (
     TechnologySerializer,
-    CompetentionSerializer,
+    CompetencySerializer,    # Исправлено с CompetentionSerializer
     EmployerSerializer
 )
 from src.core.utils.methods import parse_errors_to_dict
@@ -277,7 +277,7 @@ class EmployerSendView(APIView):
         )
 
 # Представление данных для удаления (DELETE) компетенций
-class CompetentionDeleteView(BaseAPIView):
+class CompetencyDeleteView(BaseAPIView):    # Исправлено с CompetentionDeleteView
     @swagger_auto_schema(
         operation_description="Удаление компетенции по идентификатору",
         manual_parameters=[
@@ -308,8 +308,8 @@ class CompetentionDeleteView(BaseAPIView):
             )
 
         try:
-            competention = Competention.objects.get(id=competention_id)  # Ищем компетенцию по ID
-        except Competention.DoesNotExist:
+            competention = Competency.objects.get(id=competention_id)  # Исправлено
+        except Competency.DoesNotExist:    # Исправлено
             return Response(
                 {"message": "Компетенция с указанным ID не найдена"},
                 status=status.HTTP_404_NOT_FOUND
@@ -323,10 +323,10 @@ class CompetentionDeleteView(BaseAPIView):
         )
 
 # Представление данных для обновления (PUT) компетенций
-class CompetentionPutView(BaseAPIView):
+class CompetencyPutView(BaseAPIView):    # Исправлено с CompetentionPutView
     @swagger_auto_schema(
         operation_description="Обновление информации о компетенции",
-        request_body=CompetentionSerializer,
+        request_body=CompetencySerializer,    # Исправлено
         manual_parameters=[
             openapi.Parameter(
                 'id',
@@ -354,14 +354,14 @@ class CompetentionPutView(BaseAPIView):
             )
 
         try:
-            competention = Competention.objects.get(id=competention_id)
-        except Competention.DoesNotExist:
+            competency = Competency.objects.get(id=competention_id)    # Исправлено
+        except Competency.DoesNotExist:    # Исправлено
             return Response(
                 {"message": "Компетенция с указанным ID не найдена"},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        serializer = CompetentionSerializer(competention, data=request.data, partial=False)
+        serializer = CompetencySerializer(competency, data=request.data, partial=False)    # Исправлено
         if not serializer.is_valid():
             return Response(
                 {"message": "Ошибка валидации данных", "errors": serializer.errors},
@@ -384,7 +384,7 @@ class CompetentionPutView(BaseAPIView):
         return Response(response_data, status=status.HTTP_200_OK)
 
 # Представление данных для получения (GET) компетенций
-class CompetentionGetView(BaseAPIView):
+class CompetencyGetView(BaseAPIView):    # Исправлено с CompetentionGetView
     @swagger_auto_schema(
         operation_description="Получение информации о компетенциях. Если указан параметр 'id', возвращается конкретная компетенция. Если параметр 'id' не указан, возвращаются все компетенции",
         manual_parameters=[
@@ -407,12 +407,12 @@ class CompetentionGetView(BaseAPIView):
         В случае передачи параметра 'id', возвращает данные о конкретной компетенциях.
         Если параметр 'id' не передан - возвращаются все данные о компетенциях.
         """
-        competention_id = request.query_params.get('id') # Получаем параметр 'id' из query-строки
+        competency_id = request.query_params.get('id') # Получаем параметр 'id' из query-строки
 
-        if competention_id:
+        if competency_id:
             # Если передан 'id', получаем данные о конкретной технологии
             competention = OrderedDictQueryExecutor.fetchall(
-                get_competentions, competention_id = competention_id
+                get_competentions, competency_id = competency_id
             )
             if not competention:
                 # Если компетенция не обнаружена - возвращаем ошибку 404
@@ -431,14 +431,14 @@ class CompetentionGetView(BaseAPIView):
             # Формируем успешный ответ с данными обо всех технологиях
             response_data = {
                 "data": competentions,
-                "message": "Все технологии получены успешно"
+                "message": "Все компетенции получены успешно"
             }
 
         # Возвращаем ответ с данными и статусом 200
         return Response(response_data, status=status.HTTP_200_OK)
 
 # Представление данных для создания (POST) компетенций
-class CompetentionSendView(BaseAPIView):
+class CompetencySendView(BaseAPIView):    # Исправлено с CompetentionSendView
     @swagger_auto_schema(
         operation_description="Проверка ввода компетенции",
         request_body=openapi.Schema(
@@ -456,25 +456,39 @@ class CompetentionSendView(BaseAPIView):
                     type=openapi.TYPE_STRING,  # Тип поля (строка)
                     description='Описание'  # Описание поля
                 ),
+                'know_level': openapi.Schema(type=openapi.TYPE_STRING, description='Уровень знаний'),
+                'can_level': openapi.Schema(type=openapi.TYPE_STRING, description='Уровень умений'),
+                'master_level': openapi.Schema(type=openapi.TYPE_STRING, description='Уровень владения'),
+                'blooms_level': openapi.Schema(type=openapi.TYPE_STRING, description='Уровень по таксономии Блума', enum=['KNOW', 'UNDERSTAND', 'APPLY', 'ANALYZE', 'EVALUATE', 'CREATE']),
+                'blooms_verbs': openapi.Schema(type=openapi.TYPE_STRING, description='Глаголы действий'),
+                'complexity': openapi.Schema(type=openapi.TYPE_INTEGER, description='Сложность компетенции (1-10)'),
+                'demand': openapi.Schema(type=openapi.TYPE_INTEGER, description='Востребованность компетенции (1-10)')
             },
-            required=['code', 'name', 'description'],  # Обязательные поля
+            required=['code', 'name', 'description', 'know_level', 'can_level', 'master_level', 'blooms_level', 'complexity', 'demand'],
             example={
                 "code": "ОПК-8",
-                "name": "Способен применять методы научных исследований при разработке информационно-аналитических систем безопасности",
-                "description": "В этом случае компетенции соответствуют умения применять методы алгоритмизации, языки и технологии программирования при решении задач профессиональной деятельности, программировать, отлаживать и тестировать прототипы программно-технических комплексов, пригодные для практического применения"
+                "name": "Способен применять методы научных исследований...",
+                "description": "В этом случае компетенции соответствуют умения...",
+                "know_level": "Знает методы научных исследований...",
+                "can_level": "Умеет применять методы...",
+                "master_level": "Владеет навыками применения...",
+                "blooms_level": "APPLY",
+                "blooms_verbs": "применять, использовать, демонстрировать",
+                "complexity": 7,
+                "demand": 8
             }
         ),
         responses={
-            201: "Компетенция успешно сохранена",  # Успешный ответ
-            400: "Произошла ошибка"  # Ошибка
-        },
+            201: openapi.Response(description="Компетенция успешно создана"),
+            400: openapi.Response(description="Ошибка валидации данных")
+        }
     )
     def post(self, request):
         """
         Обрабатывает POST-запрос для создания новой компетенции.
         Проверяет валидность данных и сохраняет компетенцию в базе данных.
         """
-        serializer = CompetentionSerializer(data=request.data)  # Создаем сериализатор с данными из запроса
+        serializer = CompetencySerializer(data=request.data)    # Исправлено
 
         if serializer.is_valid():
             # Если данные валидны, сохраняем технологию
