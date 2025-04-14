@@ -99,7 +99,7 @@ class DisciplineSerializer(ModelSerializer):
         # Указываем модель, с которой работает сериализатор
         model = Discipline
         # Указываем поля модели, которые будут сериализованы/десериализованы
-        fields = ['code', 'name', 'semesters', 'contact_work_hours', 'independent_work_hours', 'controle_work_hours', 'competencies']
+        fields = ['code', 'name', 'semesters', 'contact_work_hours', 'independent_work_hours', 'control_work_hours', 'competencies']
 
         # Метод для создания нового объекта Speciality
         def create(self, validated_data):
@@ -115,7 +115,7 @@ class DisciplineSerializer(ModelSerializer):
                 semesters=validated_data['semesters'],                              # Устанавливаем период освоения дисциплины
                 contact_work_hours=validated_data['contact_work_hours'],            # Устанавливаем продолжительность контактной работы
                 independent_work_hours=validated_data['independent_work_hours'],    # Устанавливаем продолжительность самостоятельной работы
-                controle_work_hours=validated_data['controle_work_hours'],          # Устанавливаем продолжительность контроля
+                control_work_hours=validated_data['control_work_hours'],          # Устанавливаем продолжительность контроля
                 competencies=validated_data['competencies'],                        # Устанавливаем перечень осваиваемых компетенций
             )
 

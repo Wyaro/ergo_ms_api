@@ -1,33 +1,56 @@
+"""
+Views module for the data formalization submodule.
+
+This module contains API views for managing:
+- Competency Profiles of Vacancies (CPV)
+- Specialties 
+- Disciplines
+- Academic Competence Matrices (ACM)
+- User Competence Matrices (UCM)
+- Competencies
+- Technologies
+
+Each resource supports standard CRUD operations through GET, POST, PUT, DELETE methods.
+"""
+
+# Standard imports
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from src.core.utils.methods import parse_errors_to_dict
-from src.core.utils.base.base_views import BaseAPIView
-from src.core.utils.database.main import OrderedDictQueryExecutor
+
+# Third party imports 
 from drf_yasg.utils import swagger_auto_schema # type: ignore
 from drf_yasg import openapi # type: ignore
 
+# Local imports
+from src.core.utils.methods import parse_errors_to_dict
+from src.core.utils.base.base_views import BaseAPIView
+from src.core.utils.database.main import OrderedDictQueryExecutor
+
+# Models
 from src.external.learning_analytics.data_formalization_submodule.models import(
     Technology,
-    Competency,
+    Competency, 
     Speciality,
     Discipline,
     ACM,
     VCM,
-    UCM  
+    UCM
 )
 
+# Serializers
 from src.external.learning_analytics.data_formalization_submodule.serializers import(
     TechnologySerializer,
     CompetencySerializer,
-    SpecialitySerializer,
+    SpecialitySerializer, 
     DisciplineSerializer,
     AcademicCompetenceMatrixSerializer,
     CompetencyProfileOfVacancySerializer,
     UserCompetenceMatrixSerializer
 )
 
+# Database queries
 from src.external.learning_analytics.data_formalization_submodule.scripts import(
     get_technologies,
     get_competentions,
@@ -37,8 +60,12 @@ from src.external.learning_analytics.data_formalization_submodule.scripts import
     get_competencyProfileOfVacancy
 )
 
-# Представление данных для получения (GET) компетентностных профилях вакансий
+#######################
+# Competency Profile Views
+#######################
+
 class CompetencyProfileOfVacancyGetView(BaseAPIView):
+    """View for retrieving competency profiles of vacancies."""
     @swagger_auto_schema(
         operation_description="Получение информации о компетентностных профилях вакансий. Если указан параметр 'id', возвращается конкретный профиль. Если указан параметр 'employer_id', возвращаются профили для конкретного работодателя. Если ни один параметр не указан, возвращаются все профили.",
         manual_parameters=[
@@ -117,109 +144,53 @@ class CompetencyProfileOfVacancyGetView(BaseAPIView):
         # Возвращаем ответ с данными и статусом 200
         return Response(response_data, status=status.HTTP_200_OK)
 
-# Представление данных для создания (POST) компетентностного профиля вакансии
 class CompetencyProfileOfVacancySendView(BaseAPIView):
+    """View for creating one or multiple competency profiles of vacancies."""
     @swagger_auto_schema(
-        operation_description="Проверка ввода компетентностного профиля вакансий",
+        operation_description="Создание одного или нескольких компетентностных профилей вакансий",
         request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,  # Тип тела запроса (объект JSON)
-            properties={
-                'vacancy_name': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Наименование специальности'  # Описание поля
-                ),
-                'employer_id': openapi.Schema(
-                    type=openapi.TYPE_INTEGER,  # Тип поля (строка)
-                    description='ID работодателя'  # Описание поля
-                ),
-                'competencies_stack': openapi.Schema(
-                    type=openapi.TYPE_OBJECT,  # Тип поля (строка)
-                    description='Перечень компетенций'  # Описание поля
-                ),
-                'technology_stack': openapi.Schema(
-                    type=openapi.TYPE_OBJECT,  # Тип поля (строка)
-                    description='Перечень технологий'  # Описание поля
-                ),
-                'description': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Описание компетентностного профиля вакансии'  # Описание поля
-                ),
-            },
-            required=['vacancy_name', 'employer_id', 'competencies_stack', 'technology_stack', 'description'],  # Обязательные поля
-            example = {
-                "vacancy_name": "Python Developer",
-                "employer_id": 123,
-                "competencies_stack": [
-                    {
-                        "id": 1,
-                        "code": "ОПК-1",
-                        "name": "Способность разрабатывать алгоритмы",
-                        "description": "Умение разрабатывать и анализировать алгоритмы."
-                    },
-                    {
-                        "id": 2,
-                        "code": "ОПК-2",
-                        "name": "Способность работать с базами данных",
-                        "description": "Умение проектировать и использовать базы данных."
-                    }
-                ],
-                "technology_stack": [
-                    {
-                        "id": 1,
-                        "name": "Python",
-                        "description": "Высокоуровневый язык программирования.",
-                        "popularity": 95,
-                        "rating": 5
-                    },
-                    {
-                        "id": 2,
-                        "name": "Django",
-                        "description": "Фреймворк для веб-разработки на Python.",
-                        "popularity": 85,
-                        "rating": 4
-                    },
-                    {
-                        "id": 3,
-                        "name": "PostgreSQL",
-                        "description": "Реляционная система управления базами данных.",
-                        "popularity": 90,
-                        "rating": 5
-                    }
-                ],
-                "description": "Ищем опытного Python-разработчика с навыками работы с базами данных и веб-фреймворками."
-            }
+            type=openapi.TYPE_ARRAY,
+            items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'vacancy_name': openapi.Schema(type=openapi.TYPE_STRING),
+                    'employer_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'competencies_stack': openapi.Schema(type=openapi.TYPE_OBJECT),
+                    'technology_stack': openapi.Schema(type=openapi.TYPE_OBJECT),
+                    'description': openapi.Schema(type=openapi.TYPE_STRING),
+                },
+                required=['vacancy_name', 'employer_id', 'competencies_stack', 'technology_stack', 'description']
+            )
         ),
         responses={
-            201: "Специальность успешно сохранена",  # Успешный ответ
-            400: "Произошла ошибка"  # Ошибка
-        },
+            201: "Профиль/профили вакансий успешно созданы",
+            400: "Ошибка валидации данных"
+        }
     )
     def post(self, request):
         """
-        Обрабатывает POST-запрос для создания нового компетентностного профиля вакансии.
-        Проверяет валидность данных и сохраняет КПВ в базе данных.
+        Обрабатывает POST-запрос для создания одного или нескольких профилей.
+        Поддерживает как одиночные объекты, так и массивы.
         """
-        serializer = CompetencyProfileOfVacancySerializer(data=request.data)  # Создаем сериализатор с данными из запроса
+        data = request.data
+
+        if isinstance(data, list):
+            serializer = CompetencyProfileOfVacancySerializer(data=data, many=True)
+        else:
+            serializer = CompetencyProfileOfVacancySerializer(data=data)
 
         if serializer.is_valid():
-            # Если данные валидны, сохраняем специальность
             serializer.save()
-            # Возвращаем успешный ответ
-            successful_response = Response(
-                {"message": "Компетентностный профиль вакансии сохранен успешно"},
-                status=status.HTTP_200_OK
+            return Response(
+                {"message": "Профиль/профили вакансий сохранены успешно"},
+                status=status.HTTP_201_CREATED
             )
-            return successful_response
 
-        # Если данные не валидны, преобразуем ошибки в словарь и возвращаем ошибку 400
         errors = parse_errors_to_dict(serializer.errors)
-        return Response(
-            errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
-# Представление данных для обновления (PUT) компетентностного профиля вакансии
 class CompetencyProfileOfVacancyPutView(BaseAPIView):
+    """View for updating competency profiles of vacancies."""
     @swagger_auto_schema(
         operation_description="Обновление информации о компетентностном профиле вакансии",
         request_body=CompetencyProfileOfVacancySerializer,
@@ -279,8 +250,8 @@ class CompetencyProfileOfVacancyPutView(BaseAPIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
 
-# Представление данных для удаления (DELETE) компетентностного профиля вакансии
 class CompetencyProfileOfVacancyDeleteView(BaseAPIView):
+    """View for deleting competency profiles of vacancies."""
     @swagger_auto_schema(
         operation_description="Удаление компетентностного профиля вакансии по идентификатору",
         manual_parameters=[
@@ -303,10 +274,14 @@ class CompetencyProfileOfVacancyDeleteView(BaseAPIView):
         Обработка DELETE-запроса для удаления компетентностного профиля вакансии.
         """
         cp_id = request.query_params.get('id')  # Получаем параметр 'id' из query-строки
-
-        if not cp_id:
+        
+        try:
+            cp_id = int(cp_id) if cp_id else None
+            if not cp_id:
+                raise ValueError("ID is required")
+        except (ValueError, TypeError):
             return Response(
-                {"message": "Идентификатор компетентностного профиля вакансии не указан"},
+                {"message": "Идентификатор компетентностного профиля вакансии не указан или имеет неверный формат"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -325,8 +300,12 @@ class CompetencyProfileOfVacancyDeleteView(BaseAPIView):
             status=status.HTTP_204_NO_CONTENT
         )
 
-# Представление данных для получения (GET) специальностей
+#######################
+# Specialty Views 
+#######################
+
 class SpecialityGetView(BaseAPIView):
+    """View for retrieving specialties."""
     @swagger_auto_schema(
         operation_description="Получение информации о направлениях подготовки. Если указан параметр 'id', возвращается конкретное направление. Если параметр 'id' не указан, возвращаются все направления",
         manual_parameters=[
@@ -379,110 +358,115 @@ class SpecialityGetView(BaseAPIView):
         # Возвращаем ответ с данными и статусом 200
         return Response(response_data, status=status.HTTP_200_OK)
 
-# Представление данных для создания (POST) специальностей
 class SpecialitySendView(BaseAPIView):
+    """View for creating one or multiple specialties."""
     @swagger_auto_schema(
-        operation_description="Проверка ввода специальности",
+        operation_description="Создание одной или нескольких специальностей",
         request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,  # Тип тела запроса (объект JSON)
-            properties={
-                'code': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Код специальности'  # Описание поля
-                ),
-                'name': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Наименование специальности'  # Описание поля
-                ),
-                'specialization': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Специализация'  # Описание поля
-                ),
-                'department': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Кафедра'  # Описание поля
-                ),
-                'faculty': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Факультет'  # Описание поля
-                ),
-                'education_duration': openapi.Schema(
-                    type=openapi.TYPE_INTEGER,  # Тип поля (целое число)
-                    description='Срок получения образования (в месяцах)'  # Описание поля
-                ),
-                'year_of_admission': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (целое число)
-                    description='Год поступления'  # Описание поля
-                ),
-            },
-            required=['code', 'name', 'specialization', 'department', 'faculty', 'education_duration', 'year_of_admission'],  # Обязательные поля
-            example={
-                "code": "10.05.04",
-                "name": "Информационно-аналитические системы безопасности",
-                "specialization": "Автоматизация информационно-аналитической деятельности",
-                "department": "Компьютерные технологии и системы",
-                "faculty": "Факультет информационных технологий",
-                "education_duration": 66,  # 5 лет и 6 месяцев = 66 месяцев
-                "year_of_admission": "2021"
-            }
+            type=openapi.TYPE_ARRAY,
+            items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'code': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Код специальности (например, 10.05.04)'
+                        ),
+                    'name': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Наименование'
+                        ),
+                    'specialization': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Специализация'
+                        ),
+                    'department': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Кафедра'
+                        ),
+                    'faculty': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Факультет'
+                        ), 
+                    'education_duration': openapi.Schema(
+                        type=openapi.TYPE_INTEGER,
+                        description='Длительность обучения'
+                        ),
+                    'year_of_admission': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Год поступления'
+                        )
+                },
+                required=['code', 'name', 'specialization', 'department', 'faculty', 'education_duration', 'year_of_admission'],
+
+                example={
+                    "code": "09.03.01",
+                    "name": "Информатика и вычислительная техника",
+                    "specialization": "Программное обеспечение",  
+                    "department": "Кафедра информатики",
+                    "faculty": "Факультет информационных технологий",
+                    "education_duration": 4,
+                    "year_of_admission": "2023"
+                }
+            )
         ),
         responses={
-            201: "Специальность успешно сохранена",  # Успешный ответ
-            400: "Произошла ошибка"  # Ошибка
+            201: "Специальность/специальности успешно созданы",
+            400: "Ошибка валидации данных"
         },
     )
     def post(self, request):
         """
-        Обрабатывает POST-запрос для создания новой специальности.
-        Проверяет валидность данных и сохраняет специальность в базе данных.
+        Обрабатывает POST-запрос для создания одной или нескольких специальностей.
+        Поддерживает как одиночные объекты, так и массивы.
         """
-        serializer = SpecialitySerializer(data=request.data)  # Создаем сериализатор с данными из запроса
 
-        if serializer.is_valid():
-            # Если данные валидны, сохраняем специальность
-            serializer.save()
-            # Возвращаем успешный ответ
-            successful_response = Response(
-                {"message": "Специальность сохранена успешно"},
-                status=status.HTTP_200_OK
+        try:
+            data = request.data
+            serializer = SpecialitySerializer(
+                data=data,
+                many=isinstance(data, list)
             )
-            return successful_response
 
-        # Если данные не валидны, преобразуем ошибки в словарь и возвращаем ошибку 400
-        errors = parse_errors_to_dict(serializer.errors)
-        return Response(
-            errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
+            if serializer.is_valid():
+                serializer.save()
+                return Response(
+                    {"message": "Специальность/специальности сохранены успешно"},
+                    status = status.HTTP_201_CREATED
+                )
+            
+            return Response(
+                parse_errors_to_dict(serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        except Exception as e:
+            return Response(
+                {"message": f"Ошибка при создании специальности: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-# Представление данных для обновления (PUT) специальностей
+
 class SpecialityPutView(BaseAPIView):
+    """View for updating specialties."""
     @swagger_auto_schema(
         operation_description="Обновление информации о специальности",
         request_body=SpecialitySerializer,
-        manual_parameters=[
-            openapi.Parameter(
-                'id',
-                openapi.IN_QUERY,
-                type=openapi.TYPE_INTEGER,
-                required=True,
-                description="Идентификатор специальности"
-            )
-        ],
         responses={
             200: "Информация о специальности обновлена успешно",
             400: "Ошибка валидации данных",
             404: "Специальность не найдена"
         }
     )
-    def put(self, request):
+    def put(self, request, pk):
         """
         Обновление информации о специальности (обработка PUT-запроса).
         """
-        speciality_id = request.query_params.get('id')
-        if not speciality_id:
+
+        try:
+            speciality_id = int(pk)
+        except (TypeError, ValueError):
             return Response(
-                {"message": "Идентификатор специальности не указан"},
+                {"message":"Неверный формат идентификатора специальности"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -490,240 +474,315 @@ class SpecialityPutView(BaseAPIView):
             speciality = Speciality.objects.get(id=speciality_id)
         except Speciality.DoesNotExist:
             return Response(
-                {"message": "Специальность с указанным ID не найдена"},
-                status=status.HTTP_404_NOT_FOUND
+                {"message":"Компетенция с указанным ID не найдена"},
+                status=status.HTTP_400_BAD_REQUEST
             )
-
+       
         serializer = SpecialitySerializer(speciality, data=request.data, partial=False)
         if not serializer.is_valid():
             return Response(
-                {"message": "Ошибка валидации данных", "errors": serializer.errors},
+                {
+                    "message":"Ошибка валидации данных",
+                    "errors": serializer.errors
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Обновляем данные специальности
         serializer.save()
-    
-        # Получаем обновленные данные
-        updated_speciality = OrderedDictQueryExecutor.fetchall(
-            get_speciality, speciality_id=speciality_id
-        )
 
-        response_data = {
-            "data": updated_speciality,
-            "message": "Информация о специальности обновлена успешно"
-        }
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-        return Response(response_data, status=status.HTTP_200_OK)
 
-# Представление данных для удаления (DELETE) специальностей
+
 class SpecialityDeleteView(BaseAPIView):
+    """View for deleting specialties."""
     @swagger_auto_schema(
         operation_description="Удаление специальности по идентификатору",
-        manual_parameters=[
-            openapi.Parameter(
-                'id',
-                openapi.IN_QUERY,
-                type=openapi.TYPE_INTEGER,
-                required=True,
-                description="Идентификатор специальности"
-            )
-        ],
         responses={
             204: "Специальность успешно удалена",  # Успешный ответ (без содержимого)
             400: "Идентификатор специальности не указан",  # Ошибка
             404: "Специальность не найдена"  # Ошибка
         }
     )
-    def delete(self, request):
+    def delete(self, request, pk):
         """
         Обработка DELETE-запроса для удаления специальности.
         """
-        speciality_id = request.query_params.get('id')  # Получаем параметр 'id' из query-строки
-
-        if not speciality_id:
-            return Response(
-                {"message": "Идентификатор специальности не указан"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         try:
-            speciality = Speciality.objects.get(id=speciality_id)  # Ищем специальность по ID
+            speciality = Speciality.objects.get(id=pk)
+            speciality.delete()
+
+            return Response(
+                {
+                    "message": "Компетенция успешно удалена"
+                },
+                status=status.HTTP_200_OK
+            )
+        
         except Speciality.DoesNotExist:
             return Response(
-                {"message": "Специальность с указанным ID не найдена"},
+                {
+                    "message": "Компетенция не найдена"
+                },
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        speciality.delete()  # Удаляем специальность из базы данных
+#######################
+# Discipline Views
+#######################
 
-        return Response(
-            {"message": "Специальность успешно удалена"},
-            status=status.HTTP_204_NO_CONTENT
-        )
-
-# Представление данных для получения информации о дисциплинах
 class DisciplineGetView(BaseAPIView):
+    """View for retrieving disciplines."""
     @swagger_auto_schema(
-        operation_description="Получение информации о дисциплинах. Если указан параметр 'id', возвращается конкретная дисциплина. Если параметр 'id' не указан, возвращаются все существующие дисциплины.",
-        manual_parameters=[
-            openapi.Parameter(
-                'id', # Имя параметра
-                openapi.IN_QUERY, # Параметр передается в query-строке
-                type = openapi.TYPE_INTEGER, # Тип параметра (целочисленынй)
-                required=False,
-                description="Идентификатор дисциплины (опционально)", # Описание параметра
-            )
-        ],
+        operation_description="Получение информации о дисциплинах",
         responses={
-            200: "Информация о дисциплинах", # Успешный ответ
-            400: "Ошибка" # Ошибка
+            200: "Информация о дисциплинах получена успешно",
+            404: "Дисциплина не найдена"
         }
     )
-    def get(self, request):
+    def get(self, request, pk=None):
         """
-        Обработка GET-запроса для получения информации о дисциплинах.
-        В случае передачи параметра 'id', возвращает данные о дисциплинах.
-        Если параметр 'id' не передан - возвращаются все данные о дисциплинах.
+        Получение информации о дисциплинах.
+        Если указан pk, возвращает конкретную дисциплину.
+        Иначе возвращает список всех дисциплин.
         """
-
-        discipline_id = request.query_params.get('id') # Полчаем параметр 'id' из query-строки
-
-        if discipline_id:
-            # Если передан 'id', получаем данные о конкретной дисциплине
-            discipline = OrderedDictQueryExecutor.fetchall(
-                get_disciplines, discipline_id = discipline_id
-            )
-            if not discipline:
-                # Если дисциплина не обнаружена - возвращаем ошибку 404
-                return Response(
-                    {"message": "Дисциплина с указанным ID не найдена"},
-                    status = status.HTTP_404_NOT_FOUND
+        try:
+            if (pk):
+                discipline = OrderedDictQueryExecutor.fetchall(
+                    get_disciplines, discipline_id=pk
                 )
-            response_data = {
-                "data": discipline,
-                "message": "Дисциплина получена успешно."
-            }
-        else:
-            # Если 'id' не передан, получаем данные обо всех специальностях
-            disciplines = OrderedDictQueryExecutor.fetchall(get_disciplines)
-            # Формируем успешный ответ с данными обо всех специальностях
-            response_data = {
-                "data": disciplines,
-                "message": "Все дисциплины получены успешно"
-            }
-
-        # Возвращаем ответ с данными и статусом 200
-        return Response(response_data, status=status.HTTP_200_OK)
-
-# Представление данных для создания (POST) дисциплины
-class DisciplineSendView(BaseAPIView):
-    @swagger_auto_schema(
-        operation_description="Проверка ввода дисциплины",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT, # Тип тела запроса (объект JSON)
-            properties={
-                'code': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Код специальности'  # Описание поля
-                ),
-                'name': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Наименование специальности'  # Описание поля
-                ),
-                'semesters': openapi.Schema(
-                    type=openapi.TYPE_STRING, # Тип поля (строка)
-                    description='Период освоения дисциплины (номера семестров через запятую)' # Описание поля
-                ),
-                'contact_work_hours': openapi.Schema(
-                    type=openapi.TYPE_INTEGER, # Тип поля (целочисленный)
-                    description='Продолжительность контактной работы, ч' # Описание поля
-                ),
-                'independent_work_hours': openapi.Schema(
-                    type=openapi.TYPE_INTEGER, # Тип поля (целочисленный)
-                    description='Продолжительность самостоятельной работы, ч' # Описание поля
-                ),
-                'controle_work_hours': openapi.Schema(
-                    type=openapi.TYPE_INTEGER, # Тип поля (целочисленный)
-                    description='Продолжительность контроля, ч' # Описание поля
-                ),
-                'competencies': openapi.Schema(
-                    type=openapi.TYPE_OBJECT, # Тип поля (объект)
-                    description='Перечень приобретаемых компетенций' # Описание поля
-                ),
-            },
-            required=['code', 'name', 'semesters', 'contact_work_hours', 'independent_work_hours', 'controle_work_hours'], # Обязательные поля
-            example={
-                'code': 'Б1.О.45',
-                'name': 'Формализованные модели и методы решения аналитических задач',
-                'semesters': '7,8',
-                'contact_work_hours': 192,
-                'independent_work_hours': 60,
-                'controle_work_hours': 36,
-                'competencies': {
-                    'code': 'ОПК-1.2',
-                    'name': '. Способен оценивать роль информации, информационных технологий и информационной безопасности в современном обществе.'
+                if not discipline:
+                    return Response(
+                        {"message": "Дисциплина не найдена"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                response_data = {
+                    "data": discipline,
+                    "message": "Дисциплина получена успешно"
                 }
-            }
-        ),
-            responses={
-                201: "Дисциплина успешно сохранена", # Успешный ответ
-                400: "Произошла ошибка" # Ошибка
-            },
-        )
-    def post(self, request):
-            """
-            Обрабатывает POST-запрос для создания новой дисциплины.
-            Проверяет валидность данных и сохраняет дисциплину в базе данных.
-            """
+            else:
+                disciplines = OrderedDictQueryExecutor.fetchall(get_disciplines)
+                response_data = {
+                    "data": disciplines,
+                    "message": "Все дисциплины получены успешно"
+                }
+            return Response(response_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"message": f"Ошибка при получении дисциплин: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-            serializer = DisciplineSerializer(data=request.data) # Создаем сериализатор с данными из запроса
+class DisciplineSendView(BaseAPIView):
+    """View for creating disciplines."""
+    @swagger_auto_schema(
+        operation_description="Создание дисциплины",
+        request_body = openapi.Schema(
+            type=openapi.TYPE_ARRAY,
+            items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'code' : openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Код дисциплины (например, Б1.О.11)'
+                    ),
+                    'name': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Наименование'
+                    ),
+                    'semesters' : openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Семестры (3,4) - максимум 6'
+                    ),
+                    'contact_work_hours' : openapi.Schema(
+                        type = openapi.TYPE_INTEGER,
+                        description='Контактная работа, ч'
+                    ),
+                    'independent_work_hours' : openapi.Schema(
+                        type=openapi.TYPE_INTEGER,
+                        description='Самостоятельная работа, ч'
+                    ),
+                    'control_work_hours' : openapi.Schema(
+                        type=openapi.TYPE_INTEGER,
+                        description='Контроль, ч'
+                    ),
+                    'competencies' : openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'code': openapi.Schema(type=openapi.TYPE_STRING),
+                                'name': openapi.Schema(type=openapi.TYPE_STRING),
+                                'description': openapi.Schema(type=openapi.TYPE_STRING),
+                                'know_level': openapi.Schema(type=openapi.TYPE_STRING),
+                                'can_level': openapi.Schema(type=openapi.TYPE_STRING),
+                                'master_level': openapi.Schema(type=openapi.TYPE_STRING),
+                                'blooms_level': openapi.Schema(type=openapi.TYPE_STRING),
+                                'blooms_verbs': openapi.Schema(type=openapi.TYPE_STRING),
+                                'complexity': openapi.Schema(type=openapi.TYPE_INTEGER),
+                                'demand': openapi.Schema(type=openapi.TYPE_INTEGER)
+                            }
+                        ),
+                        description='Компетенции'
+                    )
+                },
+
+                required=['code','name','semesters','contact_work_hours','independent_work_hours',
+                'control_work_hours','competencies'],
+
+                example={
+                    'code': "Б1.О.45",
+                    'name': "Формализованные модели и методы решения аналитических задач",
+                    'semesters': "7,8",
+                    'contact_work_hours': "192",
+                    'independent_work_hours': "60",
+                    'control_work_hours': "36",
+                    'competencies': [
+                        {
+                            "code": "DATA012",
+                            "name": "Анализ данных",
+                            "description": "Методы обработки и анализа больших данных",
+                            "know_level": "Знать методы анализа и визуализации данных",
+                            "can_level": "Уметь применять статистические методы",
+                            "master_level": "Владеть инструментами анализа данных",
+                            "blooms_level": "ANALYZE",
+                            "blooms_verbs": "анализировать, интерпретировать, визуализировать",
+                            "complexity": 8,
+                            "demand": 9
+                        },
+                        {
+                            "code": "UI013",
+                            "name": "UI/UX дизайн",
+                            "description": "Проектирование пользовательских интерфейсов",
+                            "know_level": "Знать принципы UI/UX дизайна",
+                            "can_level": "Уметь создавать удобные интерфейсы",
+                            "master_level": "Владеть инструментами прототипирования",
+                            "blooms_level": "CREATE",
+                            "blooms_verbs": "проектировать, создавать, улучшать",
+                            "complexity": 6,
+                            "demand": 7
+                        }
+                    ]
+                }
+            )
+        ),
+        responses={
+            201: "Дисциплина успешно создана",
+            400: "Ошибка валидации данных"
+        }
+    )
+    def post(self, request):
+        try:
+            data = request.data
+            serializer = DisciplineSerializer(
+                data=data,
+                many=isinstance(data, list)
+            )
 
             if serializer.is_valid():
-                # Если данные валидны, сохраняем дисциплину
                 serializer.save()
-                # Возвращаем успешным ответ
-                successful_response = Response(
-                    {"message": "Специальность сохранена успешно"},
-                    status= status.HTTP_200_OK
+                return Response(
+                    {"message": "Дисциплина сохранена успешно"},
+                    status=status.HTTP_201_CREATED
                 )
-                return successful_response
             
-            # Если данные не валидны, преобразуем ошибки в словарь и возвращаем ошибку 400
-            errors = parse_errors_to_dict(serializer.errors)
             return Response(
-                errors,
+                parse_errors_to_dict(serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST
-            ) 
+            )
+        
+        except Exception as e:
+            return Response(
+                {"message": f"Ошибка при создании дисциплины: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-# Представление данных для обновления (PUT) дисциплины
 class DisciplinePutView(BaseAPIView):
+    """View for updating disciplines."""
     @swagger_auto_schema(
         operation_description="Обновление информации о дисциплине",
-        request_body=DisciplineSerializer,
-        manual_parameters=[
-            openapi.Parameter(
-                'id',
-                openapi.IN_QUERY,
-                type=openapi.TYPE_INTEGER,
-                required=True,
-                description="Идентификатор дисциплины"
-            )
-        ],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'code': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Код дисциплины (например, Б1.О.11)'
+                ),
+                'name': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Наименование'
+                ),
+                'semesters': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Семестры (3,4) - максимум 6'
+                ),
+                'contact_work_hours': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description='Контактная работа, ч'
+                ),
+                'independent_work_hours': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description='Самостоятельная работа, ч'
+                ),
+                'control_work_hours': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description='Контроль, ч'
+                ),
+                'competencies': openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'code': openapi.Schema(type=openapi.TYPE_STRING),
+                            'name': openapi.Schema(type=openapi.TYPE_STRING),
+                            'description': openapi.Schema(type=openapi.TYPE_STRING),
+                            'know_level': openapi.Schema(type=openapi.TYPE_STRING),
+                            'can_level': openapi.Schema(type=openapi.TYPE_STRING),
+                            'master_level': openapi.Schema(type=openapi.TYPE_STRING),
+                            'blooms_level': openapi.Schema(type=openapi.TYPE_STRING),
+                            'blooms_verbs': openapi.Schema(type=openapi.TYPE_STRING),
+                            'complexity': openapi.Schema(type=openapi.TYPE_INTEGER),
+                            'demand': openapi.Schema(type=openapi.TYPE_INTEGER)
+                        }
+                    ),
+                    description='Компетенции'
+                )
+            },
+            required=['code'],
+            example={
+                'code': "Б1.О.45",
+                'name': "Формализованные модели и методы решения аналитических задач",
+                'semesters': "7,8",
+                'contact_work_hours': "192",
+                'independent_work_hours': "60",
+                'control_work_hours': "36",
+                'competencies': [
+                    {
+                        "code": "DATA012",
+                        "name": "Анализ данных",
+                        "description": "Методы обработки и анализа больших данных",
+                        "know_level": "Знать методы анализа и визуализации данных",
+                        "can_level": "Уметь применять статистические методы",
+                        "master_level": "Владеть инструментами анализа данных",
+                        "blooms_level": "ANALYZE",
+                        "blooms_verbs": "анализировать, интерпретировать, визуализировать",
+                        "complexity": 8,
+                        "demand": 9
+                    }
+                ]
+            }
+        ),
         responses={
-            200: "Информация о дисциплине обновлена успешно",
             400: "Ошибка валидации данных",
             404: "Дисциплина не найдена"
         }
     )
-    def put(self, request):
-        """
-        Обновление информации о дисциплине (обработка PUT-запроса).
-        """
-        discipline_id = request.query_params.get('id')
-        if not discipline_id:
+    def put(self, request, pk):
+        try:
+            discipline_id = int(pk)
+        except (TypeError, ValueError):
             return Response(
-                {"message": "Идентификатор дисциплины не указан"},
+                {"message": "Неверный формат идентификатора дисциплины"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -734,77 +793,49 @@ class DisciplinePutView(BaseAPIView):
                 {"message": "Дисциплина с указанным ID не найдена"},
                 status=status.HTTP_404_NOT_FOUND
             )
-
+       
         serializer = DisciplineSerializer(discipline, data=request.data, partial=False)
         if not serializer.is_valid():
             return Response(
-                {"message": "Ошибка валидации данных", "errors": serializer.errors},
+                {
+                    "message": "Ошибка валидации данных",
+                    "errors": serializer.errors
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Обновляем данные специальности
         serializer.save()
-    
-        # Получаем обновленные данные
-        updated_discipline = OrderedDictQueryExecutor.fetchall(
-            get_discipline, discipline_id=discipline_id
-        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-        response_data = {
-            "data": updated_discipline,
-            "message": "Информация о дисциплине обновлена успешно"
-        }
-
-        return Response(response_data, status=status.HTTP_200_OK)
-
-# Представление данных для удаления (DELETE) дисциплины
 class DisciplineDeleteView(BaseAPIView):
+    """View for deleting disciplines."""
     @swagger_auto_schema(
-        operation_description="Удаление дисциплины по идентификатору",
-        manual_parameters=[
-            openapi.Parameter(
-                'id',
-                openapi.IN_QUERY,
-                type=openapi.TYPE_INTEGER,
-                required=True,
-                description="Идентификатор дисциплины"
-            )
-        ],
+        operation_description="Удаление дисциплины по ID",
         responses={
-            204: "Специальность успешно удалена",  # Успешный ответ (без содержимого)
-            400: "Идентификатор дисциплины не указан",  # Ошибка
-            404: "Дисциплина не найдена"  # Ошибка
+            204: "Дисциплина успешно удалена",
+            404: "Дисциплина не найдена"
         }
     )
-    def delete(self, request):
-        """
-        Обработка DELETE-запроса для удаления дисциплины.
-        """
-        discipline_id = request.query_params.get('id')  # Получаем параметр 'id' из query-строки
-
-        if not discipline_id:
-            return Response(
-                {"message": "Идентификатор дисциплины не указан"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+    def delete(self, request, pk):
         try:
-            discipline = Discipline.objects.get(id=discipline_id)  # Ищем дисциплину по ID
+            discipline = Discipline.objects.get(id=pk)
+            discipline.delete()
+            return Response(
+                {"message": "Дисциплина успешно удалена"},
+                status=status.HTTP_204_NO_CONTENT
+            )
         except Discipline.DoesNotExist:
             return Response(
-                {"message": "Дисциплина с указанным ID не найдена"},
+                {"message": "Дисциплина не найдена"},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        discipline.delete()  # Удаляем дисциплину из базы данных
+#######################
+# Academic Competence Matrix Views
+#######################
 
-        return Response(
-            {"message": "Дисциплина успешно удалена"},
-            status=status.HTTP_204_NO_CONTENT
-        )
-
-# Представление данных для получения информации об академических матрицах компетенций
 class AcademicCompetenceMatrixGetView(BaseAPIView):
+    """View for retrieving academic competence matrices."""
     @swagger_auto_schema(
         operation_description="Получение информации об академической матрице компетенций. Если указан параметр 'id', возвращается конкретная матрица. Если параметр 'id' не указан, возвращаются все существующие матрицы.",
         manual_parameters=[
@@ -857,81 +888,124 @@ class AcademicCompetenceMatrixGetView(BaseAPIView):
         # Возвращаем ответ с данными и статусом 200
         return Response(response_data, status=status.HTTP_200_OK)
 
-# Представление данных для создания (POST) матрицы академических компетенций
 class AcademicCompetenceMatrixSendView(BaseAPIView):
+    """View for creating academic competence matrices."""
     @swagger_auto_schema(
         operation_description="Проверка ввода матрицы академических компетенций",
         request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT, # Тип тела запроса (объект JSON)
-            properties={
-                'speciality_id': openapi.Schema(
-                    type=openapi.TYPE_INTEGER,  # Тип поля (целочисленный)
-                    description='Код специальности'  # Описание поля
-                ),
-                'discipline_list': openapi.Schema(
-                    type=openapi.TYPE_OBJECT,  # Тип поля (объект)
-                    description='Перечень изучаемых дисциплин'  # Описание поля
-                ),
-                'technology_stack': openapi.Schema(
-                    type=openapi.TYPE_OBJECT, # Тип поля (строка)
-                    description='Перечень изучаемых технологий в течение времени' # Описание поля
-                ),                
-            },
-            required=['speciality_id', 'discipline_list', 'technology_stack'], # Обязательные поля
-            example={
-                'speciality_id': 1,
-                'discipline_list': {
-                    'code': 'Б1.О.45',
-                    'name': 'Формализованные модели и методы решения аналитических задач',
-                    'semesters': '7,8',
-                    'contact_work_hours': 192,
-                    'independent_work_hours': 60,
-                    'controle_work_hours': 36,
-                    'competencies': {
-                        'code': 'ОПК-1.2',
-                        'name': '. Способен оценивать роль информации, информационных технологий и информационной безопасности в современном обществе.'
-                    }
+            type=openapi.TYPE_ARRAY,
+            items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'speciality_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'discipline_list': openapi.Schema(type=openapi.TYPE_OBJECT),
+                    'technology_stack': openapi.Schema(type=openapi.TYPE_OBJECT)
                 },
-                'technology_stack': {
-                    "name": "Python",
-                    "description": "Python — это высокоуровневый язык программирования общего назначения, который широко используется для разработки веб-приложений, анализа данных, искусственного интеллекта и др.",
-                    "popularity": 95,
-                    "rating": 5
-                }
-            }
+                required=['speciality_id', 'discipline_list', 'technology_stack']
+            )
         ),
-            responses={
-                201: "Матрица академических компетенций успешно сохранена", # Успешный ответ
-                400: "Произошла ошибка" # Ошибка
+        responses={
+            201: "Матрица/матрицы успешно созданы",
+            400: "Ошибка валидации данных"
+        },
+        examples={
+            'single': {
+                "value": {
+                    "speciality_id": 1,
+                    "discipline_list": [
+                        {
+                            "id": 1,
+                            "name": "Программирование",
+                            "semester": 1,
+                            "competencies": ["ПК-1", "ПК-2"]
+                        },
+                        {
+                            "id": 2,
+                            "name": "Базы данных",
+                            "semester": 2,
+                            "competencies": ["ПК-3", "ПК-4"]
+                        }
+                    ],
+                    "technology_stack": [
+                        {
+                            "id": 1,
+                            "name": "Python",
+                            "semester_start": 1,
+                            "semester_end": 4
+                        },
+                        {
+                            "id": 2,
+                            "name": "PostgreSQL", 
+                            "semester_start": 2,
+                            "semester_end": 4
+                        }
+                    ]
+                }
             },
-        )
+            'multiple': {
+                "value": [
+                    {
+                        "speciality_id": 1,
+                        "discipline_list": [
+                            {
+                                "id": 1, 
+                                "name": "Программирование",
+                                "semester": 1,
+                                "competencies": ["ПК-1", "ПК-2"]
+                            }
+                        ],
+                        "technology_stack": [
+                            {
+                                "id": 1,
+                                "name": "Python",
+                                "semester_start": 1,
+                                "semester_end": 4
+                            }
+                        ]
+                    },
+                    {
+                        "speciality_id": 2,
+                        "discipline_list": [
+                            {
+                                "id": 3,
+                                "name": "Базы данных", 
+                                "semester": 2,
+                                "competencies": ["ПК-3", "ПК-4"]
+                            }
+                        ],
+                        "technology_stack": [
+                            {
+                                "id": 2,
+                                "name": "PostgreSQL",
+                                "semester_start": 2, 
+                                "semester_end": 4
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    )
     def post(self, request):
-            """
-            Обрабатывает POST-запрос для создания новой матрицы академических компетенций.
-            Проверяет валидность данных и сохраняет матрицы академических компетенций в базе данных.
-            """
+        data = request.data
 
-            serializer = AcademicCompetenceMatrixSerializer(data=request.data) # Создаем сериализатор с данными из запроса
+        if isinstance(data, list):
+            serializer = AcademicCompetenceMatrixSerializer(data=data, many=True)
+        else:
+            serializer = AcademicCompetenceMatrixSerializer(data=data)
 
-            if serializer.is_valid():
-                # Если данные валидны, сохраняем дисциплину
-                serializer.save()
-                # Возвращаем успешным ответ
-                successful_response = Response(
-                    {"message": "Матрица академических компетенций сохранена успешно"},
-                    status= status.HTTP_200_OK
-                )
-                return successful_response
-            
-            # Если данные не валидны, преобразуем ошибки в словарь и возвращаем ошибку 400
-            errors = parse_errors_to_dict(serializer.errors)
+        if serializer.is_valid():
+            serializer.save()
             return Response(
-                errors,
-                status=status.HTTP_400_BAD_REQUEST
-            ) 
+                {"message": "Академическая матрица/матрицы компетенций сохранены успешно"},
+                status=status.HTTP_201_CREATED
+            )
 
-# Представление данных для обновления (PUT) матрицы академических компетенций
+        errors = parse_errors_to_dict(serializer.errors)
+        return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
 class AcademicCompetenceMatrixPutView(BaseAPIView):
+    """View for updating academic competence matrices."""
     @swagger_auto_schema(
         operation_description="Обновление информации о матрице академических компетенций",
         request_body=AcademicCompetenceMatrixSerializer,
@@ -991,8 +1065,8 @@ class AcademicCompetenceMatrixPutView(BaseAPIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
 
-# Представление данных для удаления (DELETE) матрицы академических компетенций
 class AcademicCompetenceMatrixDeleteView(BaseAPIView):
+    """View for deleting academic competence matrices."""
     @swagger_auto_schema(
         operation_description="Удаление матрицы академических компетенций по идентификатору",
         manual_parameters=[
@@ -1037,10 +1111,12 @@ class AcademicCompetenceMatrixDeleteView(BaseAPIView):
             status=status.HTTP_204_NO_CONTENT
         )
 
+#######################
+# User Competence Matrix Views 
+#######################
 
-
-# Представление данных для получения информации об пользовательских матрицах компетенций
 class UserCompetenceMatrixGetView(BaseAPIView):
+    """View for retrieving user competence matrices."""
     @swagger_auto_schema(
         operation_description="Получение информации об пользовательской матрице компетенций. Если указан параметр 'id', возвращается конкретная матрица. Если параметр 'id' не указан, возвращаются все существующие матрицы.",
         manual_parameters=[
@@ -1093,65 +1169,47 @@ class UserCompetenceMatrixGetView(BaseAPIView):
         # Возвращаем ответ с данными и статусом 200
         return Response(response_data, status=status.HTTP_200_OK)
 
-# Представление данных для создания (POST) матрицы пользовательских компетенций
 class UserCompetenceMatrixSendView(BaseAPIView):
+    """View for creating user competence matrices."""
     @swagger_auto_schema(
-        operation_description="Проверка ввода матрицы пользовательских компетенций",
+        operation_description="Создание одной или нескольких пользовательских матриц компетенций",
         request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT, # Тип тела запроса (объект JSON)
-            properties={
-                'user_id': openapi.Schema(
-                    type=openapi.TYPE_INTEGER,  # Тип поля (целочисленный)
-                    description='Код специальности'  # Описание поля
-                ),
-                'competencies_stack': openapi.Schema(
-                    type=openapi.TYPE_OBJECT,  # Тип поля (объект)
-                    description='Перечень изучаемых дисциплин'  # Описание поля
-                ),
-                'technology_stack': openapi.Schema(
-                    type=openapi.TYPE_OBJECT, # Тип поля (строка)
-                    description='Перечень изучаемых технологий в течение времени' # Описание поля
-                ),                
-            },
-            required=['user_id', 'competencies_stack', 'technology_stack'], # Обязательные поля
-            example={
-                "code": "ПК-3.2",
-                "name": "Разработка программного обеспечения",
-                "description": "Способность разрабатывать компоненты программных комплексов и баз данных, использовать современные инструменты программирования."
-                }
+            type=openapi.TYPE_ARRAY,
+            items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'user_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'competencies_stack': openapi.Schema(type=openapi.TYPE_OBJECT),
+                    'technology_stack': openapi.Schema(type=openapi.TYPE_OBJECT)
+                },
+                required=['user_id', 'competencies_stack', 'technology_stack']
+            )
         ),
-            responses={
-                201: "Матрица пользовательских компетенций успешно сохранена", # Успешный ответ
-                400: "Произошла ошибка" # Ошибка
-            },
-        )
+        responses={
+            201: "Матрица/матрицы успешно созданы",
+            400: "Ошибка валидации данных"
+        }
+    )
     def post(self, request):
-            """
-            Обрабатывает POST-запрос для создания новой матрицы академических компетенций.
-            Проверяет валидность данных и сохраняет матрицы академических компетенций в базе данных.
-            """
+        data = request.data
 
-            serializer = UserCompetenceMatrixSerializer(data=request.data) # Создаем сериализатор с данными из запроса
+        if isinstance(data, list):
+            serializer = UserCompetenceMatrixSerializer(data=data, many=True)
+        else:
+            serializer = UserCompetenceMatrixSerializer(data=data)
 
-            if serializer.is_valid():
-                # Если данные валидны, сохраняем дисциплину
-                serializer.save()
-                # Возвращаем успешным ответ
-                successful_response = Response(
-                    {"message": "Матрица пользовательских компетенций сохранена успешно"},
-                    status= status.HTTP_200_OK
-                )
-                return successful_response
-            
-            # Если данные не валидны, преобразуем ошибки в словарь и возвращаем ошибку 400
-            errors = parse_errors_to_dict(serializer.errors)
+        if serializer.is_valid():
+            serializer.save()
             return Response(
-                errors,
-                status=status.HTTP_400_BAD_REQUEST
-            ) 
+                {"message": "Матрица/матрицы компетенций пользователя сохранены успешно"},
+                status=status.HTTP_201_CREATED
+            )
 
-# Представление данных для обновления (PUT) матрицы пользовательских компетенций
+        errors = parse_errors_to_dict(serializer.errors)
+        return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
 class UserCompetenceMatrixPutView(BaseAPIView):
+    """View for updating user competence matrices."""
     @swagger_auto_schema(
         operation_description="Обновление информации о матрице пользовательских компетенций",
         request_body=UserCompetenceMatrixSerializer,
@@ -1211,8 +1269,8 @@ class UserCompetenceMatrixPutView(BaseAPIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
 
-# Представление данных для удаления (DELETE) матрицы пользовательских компетенций
 class UserCompetenceMatrixDeleteView(BaseAPIView):
+    """View for deleting user competence matrices."""
     @swagger_auto_schema(
         operation_description="Удаление матрицы пользовательских компетенций по идентификатору",
         manual_parameters=[
@@ -1257,35 +1315,61 @@ class UserCompetenceMatrixDeleteView(BaseAPIView):
             status=status.HTTP_204_NO_CONTENT
         )
 
+#######################
+# Competency Views
+#######################
 
-# Представление данных для удаления (DELETE) компетенций
-class CompetencyDeleteView(BaseAPIView):    # Исправлено с CompetentionDeleteView
+class CompetencyDeleteView(BaseAPIView):
+    """View for deleting competencies through path parameter (RESTful style)."""
     @swagger_auto_schema(
-        operation_description="Удаление компетенции по идентификатору",
-        manual_parameters=[
-            openapi.Parameter(
-                name='id',  # Added 'name=' parameter
-                in_=openapi.IN_QUERY,  # Changed to in_= for clarity
-                type=openapi.TYPE_INTEGER,
-                required=True,
-                description="Идентификатор компетенции"
-            )
-        ],
+        operation_description="Удаление компетенции по ID из URL",
         responses={
-            204: "Компетенция успешно удалена",  # Успешный ответ (без содержимого)
-            400: "Идентификатор компетенции не указан",  # Ошибка
-            404: "Компетенция не найдена"  # Ошибка
+            204: openapi.Response(description="Компетенция успешно удалена"), 
+            404: openapi.Response(description="Компетенция не найдена")
         }
     )
-    def delete(self, request):
+    def delete(self, request, pk):
         """
         Обработка DELETE-запроса для удаления компетенции.
+        Использует path-параметр pk вместо query-параметра для более RESTful подхода.
         """
-        competency_id = request.query_params.get('id')  # Получаем параметр 'id' из query-строки
-
-        if not competency_id:
+        try:
+            competency = Competency.objects.get(id=pk)
+            competency.delete()
             return Response(
-                {"message": "Идентификатор компетенции не указан"},
+                {"message": "Компетенция успешно удалена"},
+                status=status.HTTP_204_NO_CONTENT
+            )
+        except Competency.DoesNotExist:
+            return Response(
+                {"message": "Компетенция не найдена"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class CompetencyPutView(BaseAPIView):
+    """View for updating competencies."""
+    @swagger_auto_schema(
+        operation_description="Обновление информации о компетенции",
+        request_body=CompetencySerializer,
+        responses={
+            200: openapi.Response(
+                description="Информация о компетенции обновлена успешно",
+                schema=CompetencySerializer
+            ),
+            400: "Ошибка валидации данных",
+            404: "Компетенция не найдена"
+        }
+    )
+    def put(self, request, pk):  # Изменили параметр с id на pk
+        """
+        Обновление информации о компетенции (обработка PUT-запроса).
+        """
+        try:
+            competency_id = int(pk)  # Используем pk вместо id
+        except (TypeError, ValueError):
+            return Response(
+                {"message": "Неверный формат идентификатора компетенции"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -1297,76 +1381,18 @@ class CompetencyDeleteView(BaseAPIView):    # Исправлено с Competenti
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        competency.delete()
-
-        return Response(
-            {"message": "Компетенция успешно удалена"},
-            status=status.HTTP_204_NO_CONTENT
-        )
-
-# Представление данных для обновления (PUT) компетенций
-class CompetencyPutView(BaseAPIView):    # Исправлено с CompetentionPutView
-    @swagger_auto_schema(
-        operation_description="Обновление информации о компетенции",
-        request_body=CompetencySerializer,    # Исправлено
-        manual_parameters=[
-            openapi.Parameter(
-                'id',
-                openapi.IN_QUERY,
-                type=openapi.TYPE_INTEGER,
-                required=True,
-                description="Идентификатор компетенции"
-            )
-        ],
-        responses={
-            200: "Информация о компетенции обновлена успешно",
-            400: "Ошибка валидации данных",
-            404: "Компетенция не найдена"
-        }
-    )
-    def put(self, request):
-        """
-        Обновление информации о компетенции (обработка PUT-запроса).
-        """
-        competention_id = request.query_params.get('id')
-        if not competention_id:
-            return Response(
-                {"message": "Идентификатор компетенции не указан"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            competency = Competency.objects.get(id=competention_id)    
-        except Competency.DoesNotExist:    
-            return Response(
-                {"message": "Компетенция с указанным ID не найдена"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        serializer = CompetencySerializer(competency, data=request.data, partial=False)    # Исправлено
+        serializer = CompetencySerializer(competency, data=request.data, partial=False)
         if not serializer.is_valid():
             return Response(
                 {"message": "Ошибка валидации данных", "errors": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Обновляем данные работодателя
         serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-        # Получаем обновленные данные
-        updated_competention = OrderedDictQueryExecutor.fetchall(
-            get_competentions, competency_id=competency_id
-        )
-
-        response_data = {
-            "data": updated_competention,
-            "message": "Информация о компетенции обновлена успешно"
-        }
-
-        return Response(response_data, status=status.HTTP_200_OK)
-
-# Представление данных для получения (GET) компетенций
 class CompetencyGetView(BaseAPIView):    # Исправлено с CompetentionGetView
+    """View for retrieving competencies."""
     @swagger_auto_schema(
         operation_description="Получение информации о компетенциях. Если указан параметр 'id', возвращается конкретная компетенция. Если параметр 'id' не указан, возвращаются все компетенции",
         manual_parameters=[
@@ -1386,31 +1412,31 @@ class CompetencyGetView(BaseAPIView):    # Исправлено с CompetentionG
     def get(self, request):
         """
         Обработка GET-запроса для получения информации о компетенциях.
-        В случае передачи параметра 'id', возвращает данные о конкретной компетенциях.
+        В случае передачи параметра 'id', возвращает данные о конкретной компетенции.
         Если параметр 'id' не передан - возвращаются все данные о компетенциях.
         """
         competency_id = request.query_params.get('id') # Получаем параметр 'id' из query-строки
 
         if competency_id:
-            # Если передан 'id', получаем данные о конкретной технологии
-            competention = OrderedDictQueryExecutor.fetchall(
+            # Если передан 'id', получаем данные о конкретной компетенции
+            competency = OrderedDictQueryExecutor.fetchall(
                 get_competentions, competency_id = competency_id
             )
-            if not competention:
+            if not competency:
                 # Если компетенция не обнаружена - возвращаем ошибку 404
                 return Response(
                     {"message": "Компетенция с указанным ID не найдена"},
                     status = status.HTTP_404_NOT_FOUND
                 )
-            # Формируем успешный ответ с данными о технологии
+            # Формируем успешный ответ с данными о компетенции
             response_data = {
-                "data": competentions,
+                "data": competency,
                 "message": "Компетенция получена успешно"
             }
         else:
-            # Если 'id' не передан, получаем данные обо всех технологиях
+            # Если 'id' не передан, получаем данные обо всех компетенциях
             competentions = OrderedDictQueryExecutor.fetchall(get_competentions)
-            # Формируем успешный ответ с данными обо всех технологиях
+            # Формируем успешный ответ с данными обо всех компетенциях
             response_data = {
                 "data": competentions,
                 "message": "Все компетенции получены успешно"
@@ -1419,78 +1445,116 @@ class CompetencyGetView(BaseAPIView):    # Исправлено с CompetentionG
         # Возвращаем ответ с данными и статусом 200
         return Response(response_data, status=status.HTTP_200_OK)
 
-# Представление данных для создания (POST) компетенций
-class CompetencySendView(BaseAPIView):    # Исправлено с CompetentionSendView
+class CompetencySendView(BaseAPIView):
+    """Представление для создания одной или нескольких компетенций."""
     @swagger_auto_schema(
-        operation_description="Проверка ввода компетенции",
+        operation_description="Создание одной или нескольких компетенций",
         request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,  # Тип тела запроса (объект JSON)
-            properties={
-                'code': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (целое число)
-                    description='Код'  # Описание поля
-                ),
-                'name': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Наименование'  # Описание поля
-                ),
-                'description': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Описание'  # Описание поля
-                ),
-                'know_level': openapi.Schema(type=openapi.TYPE_STRING, description='Уровень знаний'),
-                'can_level': openapi.Schema(type=openapi.TYPE_STRING, description='Уровень умений'),
-                'master_level': openapi.Schema(type=openapi.TYPE_STRING, description='Уровень владения'),
-                'blooms_level': openapi.Schema(type=openapi.TYPE_STRING, description='Уровень по таксономии Блума', enum=['KNOW', 'UNDERSTAND', 'APPLY', 'ANALYZE', 'EVALUATE', 'CREATE']),
-                'blooms_verbs': openapi.Schema(type=openapi.TYPE_STRING, description='Глаголы действий'),
-                'complexity': openapi.Schema(type=openapi.TYPE_INTEGER, description='Сложность компетенции (1-10)'),
-                'demand': openapi.Schema(type=openapi.TYPE_INTEGER, description='Востребованность компетенции (1-10)')
-            },
-            required=['code', 'name', 'description', 'know_level', 'can_level', 'master_level', 'blooms_level', 'complexity', 'demand'],
-            example={
-                "code": "ОПК-8",
-                "name": "Способен применять методы научных исследований...",
-                "description": "В этом случае компетенции соответствуют умения...",
-                "know_level": "Знает методы научных исследований...",
-                "can_level": "Умеет применять методы...",
-                "master_level": "Владеет навыками применения...",
-                "blooms_level": "APPLY",
-                "blooms_verbs": "применять, использовать, демонстрировать",
-                "complexity": 7,
-                "demand": 8
-            }
+            type=openapi.TYPE_ARRAY,
+            items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'code': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Код компетенции (например, ПК-1)'
+                    ),
+                    'name': openapi.Schema(
+                        type=openapi.TYPE_STRING, 
+                        description='Название компетенции'
+                    ),
+                    'description': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Подробное описание компетенции'
+                    ),
+                    'know_level': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Требования к уровню знаний'
+                    ),
+                    'can_level': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Требования к уровню умений'
+                    ),
+                    'master_level': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Требования к уровню владения'
+                    ),
+                    'blooms_level': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Уровень по таксономии Блума'
+                    ),
+                    'blooms_verbs': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Глаголы действия по таксономии Блума'
+                    ),
+                    'complexity': openapi.Schema(
+                        type=openapi.TYPE_INTEGER,
+                        description='Сложность компетенции (1-10)'
+                    ),
+                    'demand': openapi.Schema(
+                        type=openapi.TYPE_INTEGER,
+                        description='Востребованность на рынке (1-10)'
+                    )
+                },
+                required=['code', 'name', 'description', 'know_level', 'can_level', 
+                         'master_level', 'blooms_level', 'complexity', 'demand'],
+                example={
+                    "code": "ПК-1",
+                    "name": "Проектирование и разработка ПО",
+                    "description": "Способность проектировать и разрабатывать программное обеспечение",
+                    "know_level": "Понимает принципы проектирования ПО",
+                    "can_level": "Умеет применять паттерны проектирования",
+                    "master_level": "Владеет разработкой сложных систем",
+                    "blooms_level": "CREATE",
+                    "blooms_verbs": "проектировать, разрабатывать, создавать",
+                    "complexity": 8,
+                    "demand": 9
+                }
+            )
         ),
         responses={
-            201: openapi.Response(description="Компетенция успешно создана"),
-            400: openapi.Response(description="Ошибка валидации данных")
+            201: "Компетенция/компетенции успешно созданы",
+            400: "Ошибка валидации данных"
         }
     )
     def post(self, request):
         """
-        Обрабатывает POST-запрос для создания новой компетенции.
-        Проверяет валидность данных и сохраняет компетенцию в базе данных.
+        Обработка POST-запроса для создания одной или нескольких компетенций.
+        Поддерживает как одиночные объекты, так и массивы.
+        
+        Returns:
+            Response: Ответ со статусом 201 при успехе или 400 при ошибке валидации
         """
-        serializer = CompetencySerializer(data=request.data)   
-
-        if serializer.is_valid():
-            # Если данные валидны, сохраняем технологию
-            serializer.save()
-            # Возвращаем успешный ответ
-            successful_response = Response(
-                {"message": "Компетенция сохранена успешно"},
-                status=status.HTTP_200_OK
+        try:
+            data = request.data
+            serializer = CompetencySerializer(
+                data=data, 
+                many=isinstance(data, list)
             )
-            return successful_response
 
-        # Если данные не валидны, преобразуем ошибки в словарь и возвращаем ошибку 400
-        errors = parse_errors_to_dict(serializer.errors)
-        return Response(
-            errors,
-            status=status.HTTP_400_BAD_REQUEST
-        ) 
+            if serializer.is_valid():
+                serializer.save()
+                return Response(
+                    {"message": "Компетенция/компетенции сохранены успешно"},
+                    status=status.HTTP_201_CREATED
+                )
 
-#Представление данных для удаления (DELETE) технологий
+            return Response(
+                parse_errors_to_dict(serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+            return Response(
+                {"message": f"Ошибка при создании компетенции: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+#######################
+# Technology Views
+#######################
+
 class TechnologyDeleteView(BaseAPIView):
+    """View for deleting technologies."""
     @swagger_auto_schema(
         operation_description="Удаление технологии по идентификатору",
         manual_parameters=[
@@ -1535,8 +1599,8 @@ class TechnologyDeleteView(BaseAPIView):
             status=status.HTTP_204_NO_CONTENT
         )
 
-# Представление данных для обновления (PUT) технологий
 class TechnologyPutView(BaseAPIView):
+    """View for updating technologies."""
     @swagger_auto_schema(
         operation_description="Обновление информации о технологии",
         request_body=TechnologySerializer,
@@ -1596,8 +1660,8 @@ class TechnologyPutView(BaseAPIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
     
-# Представление данных для получения (GET) технологий 
 class TechnologyGetView(BaseAPIView):
+    """View for retrieving technologies."""
     @swagger_auto_schema(
         operation_description="Получение информации о технологиях. Если указан параметр 'id', возвращается конкретная технология. Если параметр 'id' не указан, возвращаются все технологии.",
         manual_parameters=[
@@ -1650,7 +1714,6 @@ class TechnologyGetView(BaseAPIView):
         # Возвращаем ответ с данными и статусом 200
         return Response(response_data, status=status.HTTP_200_OK)
 
-# Представление данных для создания (POST) технологий
 class TechnologySendView(APIView):
     """
     Представление для создания одной или нескольких технологий.
@@ -1688,20 +1751,6 @@ class TechnologySendView(APIView):
                     "rating": 4.95
                 }
             ),
-            example=[  # Пример массива объектов
-                {
-                    "name": "Python",
-                    "description": "Python — это высокоуровневый язык программирования общего назначения, который широко используется для разработки веб-приложений, анализа данных, искусственного интеллекта и др.",
-                    "popularity": 95.83,
-                    "rating": 4.95
-                },
-                {
-                    "name": "Django",
-                    "description": "Django — это мощный веб-фреймворк для Python, который позволяет быстро создавать безопасные и масштабируемые веб-приложения.",
-                    "popularity": 90.12,
-                    "rating": 4.85
-                }
-            ]
         ),
         responses={
             201: openapi.Response(
@@ -1777,3 +1826,4 @@ class TechnologySendView(APIView):
             errors,
             status=status.HTTP_400_BAD_REQUEST
         )
+

@@ -142,7 +142,7 @@ def get_disciplines(discipline_id: int = None):
                 semesters,
                 contact_work_hours,
                 independent_work_hours,
-                controle_work_hours,
+                control_work_hours,
                 competencies
             from
                 learning_analytics_data_formalization_submodule_discipline

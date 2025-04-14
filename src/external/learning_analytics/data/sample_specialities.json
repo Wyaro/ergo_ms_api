@@ -1,0 +1,283 @@
+{
+    "specialties": [
+        {
+            "code": "09.03.01",
+            "name": "Информатика и вычислительная техника",
+            "specialization": "Программное обеспечение систем",
+            "department": "Кафедра программного обеспечения",
+            "faculty": "Факультет информационных технологий",
+            "education_duration": 48,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "09.03.02",
+            "name": "Информационные системы и технологии",
+            "specialization": "Информационные технологии",
+            "department": "Кафедра информационных систем",
+            "faculty": "Факультет информационных технологий",
+            "education_duration": 48,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "01.03.02",
+            "name": "Прикладная математика и информатика",
+            "specialization": "Математическое моделирование",
+            "department": "Кафедра прикладной математики",
+            "faculty": "Факультет математики",
+            "education_duration": 48,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "11.03.01",
+            "name": "Радиотехника",
+            "specialization": "Радиотехнические системы",
+            "department": "Кафедра радиотехники",
+            "faculty": "Факультет радиотехники и электроники",
+            "education_duration": 48,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "15.03.05",
+            "name": "Конструкторско-технологическое обеспечение",
+            "specialization": "Технология машиностроения",
+            "department": "Кафедра технологии машиностроения",
+            "faculty": "Машиностроительный факультет",
+            "education_duration": 48,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "38.03.01",
+            "name": "Экономика",
+            "specialization": "Финансы и кредит",
+            "department": "Кафедра экономики",
+            "faculty": "Экономический факультет",
+            "education_duration": 48,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "40.03.01",
+            "name": "Юриспруденция",
+            "specialization": "Гражданское право",
+            "department": "Кафедра гражданского права",
+            "faculty": "Юридический факультет",
+            "education_duration": 48,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "08.03.01",
+            "name": "Строительство",
+            "specialization": "Промышленное и гражданское строительство",
+            "department": "Кафедра строительства",
+            "faculty": "Строительный факультет",
+            "education_duration": 48,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "13.03.02",
+            "name": "Электроэнергетика и электротехника",
+            "specialization": "Электроснабжение",
+            "department": "Кафедра электротехники",
+            "faculty": "Энергетический факультет",
+            "education_duration": 48,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "23.03.01",
+            "name": "Технология транспортных процессов",
+            "specialization": "Организация перевозок",
+            "department": "Кафедра транспорта",
+            "faculty": "Транспортный факультет",
+            "education_duration": 48,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "09.04.01",
+            "name": "Информатика и вычислительная техника",
+            "specialization": "Искусственный интеллект",
+            "department": "Кафедра программного обеспечения",
+            "faculty": "Факультет информационных технологий",
+            "education_duration": 24,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "01.04.02",
+            "name": "Прикладная математика и информатика",
+            "specialization": "Компьютерное моделирование",
+            "department": "Кафедра прикладной математики",
+            "faculty": "Факультет математики",
+            "education_duration": 24,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "38.04.01",
+            "name": "Экономика",
+            "specialization": "Банковское дело",
+            "department": "Кафедра экономики",
+            "faculty": "Экономический факультет",
+            "education_duration": 24,
+            "year_of_admission": "2023"
+        },
+        {
+            "code": "09.03.03",
+            "name": "Прикладная информатика",
+            "specialization": "Прикладная информатика в экономике",
+            "department": "Кафедра информационных систем",
+            "faculty": "Факультет информационных технологий",
+            "education_duration": 48,
+            "year_of_admission": "2022"
+        },
+        {
+            "code": "09.03.04",
+            "name": "Программная инженерия",
+            "specialization": "Разработка программного обеспечения",
+            "department": "Кафедра программного обеспечения",
+            "faculty": "Факультет информационных технологий",
+            "education_duration": 48,
+            "year_of_admission": "2022"
+        },
+        {
+            "code": "10.03.01",
+            "name": "Информационная безопасность",
+            "specialization": "Безопасность компьютерных систем",
+            "department": "Кафедра информационной безопасности",
+            "faculty": "Факультет информационных технологий",
+            "education_duration": 48,
+            "year_of_admission": "2022"
+        },
+        {
+            "code": "27.03.04",
+            "name": "Управление в технических системах",
+            "specialization": "Автоматизация технологических процессов",
+            "department": "Кафедра автоматики",
+            "faculty": "Факультет автоматики и вычислительной техники",
+            "education_duration": 48,
+            "year_of_admission": "2022"
+        },
+        {
+            "code": "38.03.02",
+            "name": "Менеджмент",
+            "specialization": "Производственный менеджмент",
+            "department": "Кафедра менеджмента",
+            "faculty": "Экономический факультет",
+            "education_duration": 48,
+            "year_of_admission": "2022"
+        },
+        {
+            "code": "38.03.05",
+            "name": "Бизнес-информатика",
+            "specialization": "Электронный бизнес",
+            "department": "Кафедра бизнес-информатики",
+            "faculty": "Факультет бизнеса",
+            "education_duration": 48,
+            "year_of_admission": "2022"
+        },
+        {
+            "code": "45.03.02",
+            "name": "Лингвистика",
+            "specialization": "Перевод и переводоведение",
+            "department": "Кафедра иностранных языков",
+            "faculty": "Гуманитарный факультет",
+            "education_duration": 48,
+            "year_of_admission": "2022"
+        },
+        {
+            "code": "09.04.02",
+            "name": "Информационные системы и технологии",
+            "specialization": "Технологии больших данных",
+            "department": "Кафедра информационных систем",
+            "faculty": "Факультет информационных технологий",
+            "education_duration": 24,
+            "year_of_admission": "2022"
+        },
+        {
+            "code": "09.04.04",
+            "name": "Программная инженерия",
+            "specialization": "Проектирование программных систем",
+            "department": "Кафедра программного обеспечения",
+            "faculty": "Факультет информационных технологий",
+            "education_duration": 24,
+            "year_of_admission": "2022"
+        },
+        {
+            "code": "01.03.05",
+            "name": "Статистика",
+            "specialization": "Математическая статистика",
+            "department": "Кафедра статистики",
+            "faculty": "Факультет математики",
+            "education_duration": 48,
+            "year_of_admission": "2021"
+        },
+        {
+            "code": "02.03.01",
+            "name": "Математика и компьютерные науки",
+            "specialization": "Алгоритмическая математика",
+            "department": "Кафедра математики",
+            "faculty": "Факультет математики",
+            "education_duration": 48,
+            "year_of_admission": "2021"
+        },
+        {
+            "code": "09.03.02",
+            "name": "Информационные системы и технологии",
+            "specialization": "Информационная безопасность",
+            "department": "Кафедра информационных систем",
+            "faculty": "Факультет информационных технологий",
+            "education_duration": 48,
+            "year_of_admission": "2021"
+        },
+        {
+            "code": "11.03.02",
+            "name": "Инфокоммуникационные технологии",
+            "specialization": "Системы мобильной связи",
+            "department": "Кафедра телекоммуникаций",
+            "faculty": "Факультет радиотехники и электроники",
+            "education_duration": 48,
+            "year_of_admission": "2021"
+        },
+        {
+            "code": "12.03.01",
+            "name": "Приборостроение",
+            "specialization": "Информационно-измерительная техника",
+            "department": "Кафедра приборостроения",
+            "faculty": "Факультет приборостроения",
+            "education_duration": 48,
+            "year_of_admission": "2021"
+        },
+        {
+            "code": "15.03.04",
+            "name": "Автоматизация технологических процессов",
+            "specialization": "Автоматизация производства",
+            "department": "Кафедра автоматизации",
+            "faculty": "Факультет автоматики и вычислительной техники",
+            "education_duration": 48,
+            "year_of_admission": "2021"
+        },
+        {
+            "code": "27.03.05",
+            "name": "Инноватика",
+            "specialization": "Управление инновациями",
+            "department": "Кафедра инноватики",
+            "faculty": "Факультет бизнеса",
+            "education_duration": 48,
+            "year_of_admission": "2021"
+        },
+        {
+            "code": "38.03.03",
+            "name": "Управление персоналом",
+            "specialization": "Управление человеческими ресурсами",
+            "department": "Кафедра управления персоналом",
+            "faculty": "Факультет бизнеса",
+            "education_duration": 48,
+            "year_of_admission": "2021"
+        },
+        {
+            "code": "42.03.01",
+            "name": "Реклама и связи с общественностью",
+            "specialization": "Реклама в цифровых медиа",
+            "department": "Кафедра маркетинга",
+            "faculty": "Гуманитарный факультет",
+            "education_duration": 48,
+            "year_of_admission": "2021"
+        }
+    ]
+}

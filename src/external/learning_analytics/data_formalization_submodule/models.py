@@ -142,7 +142,7 @@ class Discipline(models.Model):
         semesters (CharField): Период освоения дисциплины (номера семестров через ','). Максимальная длина - 12 символов.
         contact_work_hours (SmallAutoField): Длительность контактной работы, часы. 
         independent_work_hours (SmallAutoField): Длительность самостоятельной работы, часы.
-        controle_work_hours (SmallAutoField): Длительность контроля, часы
+        control_work_hours (SmallAutoField): Длительность контроля, часы
         competencies (JSONField): Перечень осваиваемых компетенций
     """
     code = models.CharField(max_length=10, unique=True, verbose_name="Код дисциплины")
@@ -151,8 +151,7 @@ class Discipline(models.Model):
     semesters = models.CharField(max_length=12, verbose_name="Период освоения (семестры)")
     contact_work_hours = models.PositiveSmallIntegerField(verbose_name="Контактная работа, ч")
     independent_work_hours = models.PositiveSmallIntegerField(verbose_name="Самостоятельная работа, ч")
-    controle_work_hours = models.PositiveSmallIntegerField(verbose_name="Контроль, ч")
-    # todo: Подразумевается дополнительно включить логику рассмотрения рабочих планов по дисциплине (РПД хранят расписанные перечни компетенций)
+    control_work_hours = models.PositiveSmallIntegerField(verbose_name="Контроль, ч")
     competencies = models.JSONField(verbose_name="Осваиваемые компетенции")
 
     def __str__(self):
