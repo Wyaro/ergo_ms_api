@@ -17,7 +17,7 @@ class Speciality(models.Model):
         department (CharField): Кафедра, выпускающая специальность. Максимальная длина - 255 символов.
         faculty (CharField): Факультет. Максимальная длина - 255 символов.
     """
-    code = models.CharField(max_length=20, unique=True, verbose_name="Код специальности")
+    code = models.CharField(max_length=20, verbose_name="Код специальности")
     name = models.CharField(max_length=255, verbose_name="Специальность")
     specialization = models.CharField(max_length=255, verbose_name="Специализация")
     department = models.CharField(max_length=255, verbose_name="Кафедра")

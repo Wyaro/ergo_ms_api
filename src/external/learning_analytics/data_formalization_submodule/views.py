@@ -159,35 +159,38 @@ class SpecialitySendView(BaseAPIView):
     def post(self, request):
         """
         Обработка POST-запроса для создания специальностей.
-        Если передан список — создаются несколько объектов, иначе один.
+        Добавляет только те объекты, которых нет в БД (по code), дубликаты пропускает.
+        Возвращает списки добавленных и пропущенных.
         """
         try:
             data = request.data
             is_many = isinstance(data, list)
-            serializer = SpecialitySerializer(
-                data=data,
-                many=is_many
-            )
+            if not is_many:
+                data = [data]
+            # Получаем все существующие code из БД
+            existing_codes = set(Speciality.objects.filter(code__in=[item.get('code') for item in data]).values_list('code', flat=True))
+            to_create = [item for item in data if item.get('code') not in existing_codes]
+            skipped = [item for item in data if item.get('code') in existing_codes]
+            if not to_create:
+                return Response({
+                    "added": [],
+                    "skipped": skipped,
+                    "message": "Все объекты уже существуют в базе, ничего не добавлено"
+                }, status=status.HTTP_200_OK)
+            serializer = SpecialitySerializer(data=to_create, many=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    {
-                        "data": serializer.data,
-                        "message": "Специальность/специальности сохранены успешно"
-                    },
-                    status=status.HTTP_201_CREATED
-                )
-            # Если данные невалидны — возвращаем ошибки валидации
-            return Response(
-                parse_errors_to_dict(serializer.errors),
-                status=status.HTTP_400_BAD_REQUEST
-            )
+                return Response({
+                    "added": serializer.data,
+                    "skipped": skipped,
+                    "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+                }, status=status.HTTP_201_CREATED)
+            errors = serializer.errors
+            if isinstance(errors, list):
+                errors = {str(i): err for i, err in enumerate(errors)}
+            return Response(parse_errors_to_dict(errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            # Глобальный обработчик ошибок
-            return Response(
-                {"message": f"Ошибка при создании специальности: {str(e)}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"message": f"Ошибка при создании специальности: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class SpecialityPutView(BaseAPIView):

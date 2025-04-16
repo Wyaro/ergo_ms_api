@@ -59,7 +59,7 @@ def get_tables_info(cursor):
                     ON c.table_name = t.table_name 
                     AND c.table_schema = 'public'
                 WHERE t.table_schema = 'public'
-                    AND t.table_name LIKE 'learning_analytics_%%'
+                    AND t.table_name LIKE 'la_%%'
                 GROUP BY t.table_name
             )
             SELECT table_name, column_count
@@ -96,7 +96,7 @@ def clear_analytics_tables(cursor):
             SELECT table_name 
             FROM information_schema.tables 
             WHERE table_schema = 'public' 
-            AND table_name LIKE 'learning_analytics_%%'
+            AND table_name LIKE 'la_%%'
         """)
         tables = cursor.fetchall()
         
