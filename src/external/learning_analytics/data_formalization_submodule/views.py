@@ -326,16 +326,41 @@ class CurriculumSendView(BaseAPIView):
         responses={201: CurriculumSerializer(many=True), 400: "Ошибка валидации данных"},
     )
     def post(self, request):
+        """
+        Обработка POST-запроса для создания учебных планов.
+        Добавляет только уникальные объекты (по speciality, education_duration, year_of_admission), дубликаты пропускает.
+        Возвращает списки добавленных и пропущенных.
+        """
         try:
             data = request.data
             is_many = isinstance(data, list)
-            serializer = CurriculumSerializer(data=data, many=is_many)
+            if not is_many:
+                data = [data]
+            # Получаем все существующие уникальные комбинации
+            unique_keys = [(item.get('speciality'), item.get('education_duration'), item.get('year_of_admission')) for item in data]
+            existing = set(
+                Curriculum.objects.filter(
+                    speciality_id__in=[k[0] for k in unique_keys if k[0] is not None],
+                    education_duration__in=[k[1] for k in unique_keys if k[1] is not None],
+                    year_of_admission__in=[k[2] for k in unique_keys if k[2] is not None]
+                ).values_list('speciality_id', 'education_duration', 'year_of_admission')
+            )
+            to_create = [item for item in data if (item.get('speciality'), item.get('education_duration'), item.get('year_of_admission')) not in existing]
+            skipped = [item for item in data if (item.get('speciality'), item.get('education_duration'), item.get('year_of_admission')) in existing]
+            if not to_create:
+                return Response({
+                    "added": [],
+                    "skipped": skipped,
+                    "message": "Все объекты уже существуют в базе, ничего не добавлено"
+                }, status=status.HTTP_200_OK)
+            serializer = CurriculumSerializer(data=to_create, many=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    {"data": serializer.data, "message": "Учебный(е) план(ы) сохранены успешно"},
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    "added": serializer.data,
+                    "skipped": skipped,
+                    "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+                }, status=status.HTTP_201_CREATED)
             return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"message": f"Ошибка при создании учебного плана: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -424,16 +449,34 @@ class TechnologySendView(BaseAPIView):
         responses={201: TechnologySerializer(many=True), 400: "Ошибка валидации данных"},
     )
     def post(self, request):
+        """
+        Обработка POST-запроса для создания технологий.
+        Добавляет только уникальные объекты (по name), дубликаты пропускает.
+        Возвращает списки добавленных и пропущенных.
+        """
         try:
             data = request.data
             is_many = isinstance(data, list)
-            serializer = TechnologySerializer(data=data, many=is_many)
+            if not is_many:
+                data = [data]
+            names = [item.get('name') for item in data]
+            existing = set(Technology.objects.filter(name__in=names).values_list('name', flat=True))
+            to_create = [item for item in data if item.get('name') not in existing]
+            skipped = [item for item in data if item.get('name') in existing]
+            if not to_create:
+                return Response({
+                    "added": [],
+                    "skipped": skipped,
+                    "message": "Все объекты уже существуют в базе, ничего не добавлено"
+                }, status=status.HTTP_200_OK)
+            serializer = TechnologySerializer(data=to_create, many=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    {"data": serializer.data, "message": "Технология(и) сохранены успешно"},
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    "added": serializer.data,
+                    "skipped": skipped,
+                    "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+                }, status=status.HTTP_201_CREATED)
             return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"message": f"Ошибка при создании технологии: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -522,16 +565,34 @@ class CompetencySendView(BaseAPIView):
         responses={201: CompetencySerializer(many=True), 400: "Ошибка валидации данных"},
     )
     def post(self, request):
+        """
+        Обработка POST-запроса для создания компетенций.
+        Добавляет только уникальные объекты (по code), дубликаты пропускает.
+        Возвращает списки добавленных и пропущенных.
+        """
         try:
             data = request.data
             is_many = isinstance(data, list)
-            serializer = CompetencySerializer(data=data, many=is_many)
+            if not is_many:
+                data = [data]
+            codes = [item.get('code') for item in data]
+            existing = set(Competency.objects.filter(code__in=codes).values_list('code', flat=True))
+            to_create = [item for item in data if item.get('code') not in existing]
+            skipped = [item for item in data if item.get('code') in existing]
+            if not to_create:
+                return Response({
+                    "added": [],
+                    "skipped": skipped,
+                    "message": "Все объекты уже существуют в базе, ничего не добавлено"
+                }, status=status.HTTP_200_OK)
+            serializer = CompetencySerializer(data=to_create, many=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    {"data": serializer.data, "message": "Компетенция(и) сохранены успешно"},
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    "added": serializer.data,
+                    "skipped": skipped,
+                    "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+                }, status=status.HTTP_201_CREATED)
             return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"message": f"Ошибка при создании компетенции: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -620,16 +681,34 @@ class BaseDisciplineSendView(BaseAPIView):
         responses={201: BaseDisciplineSerializer(many=True), 400: "Ошибка валидации данных"},
     )
     def post(self, request):
+        """
+        Обработка POST-запроса для создания базовых дисциплин.
+        Добавляет только уникальные объекты (по code), дубликаты пропускает.
+        Возвращает списки добавленных и пропущенных.
+        """
         try:
             data = request.data
             is_many = isinstance(data, list)
-            serializer = BaseDisciplineSerializer(data=data, many=is_many)
+            if not is_many:
+                data = [data]
+            codes = [item.get('code') for item in data]
+            existing = set(BaseDiscipline.objects.filter(code__in=codes).values_list('code', flat=True))
+            to_create = [item for item in data if item.get('code') not in existing]
+            skipped = [item for item in data if item.get('code') in existing]
+            if not to_create:
+                return Response({
+                    "added": [],
+                    "skipped": skipped,
+                    "message": "Все объекты уже существуют в базе, ничего не добавлено"
+                }, status=status.HTTP_200_OK)
+            serializer = BaseDisciplineSerializer(data=to_create, many=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    {"data": serializer.data, "message": "Базовая дисциплина(ы) сохранены успешно"},
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    "added": serializer.data,
+                    "skipped": skipped,
+                    "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+                }, status=status.HTTP_201_CREATED)
             return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"message": f"Ошибка при создании базовой дисциплины: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -718,16 +797,34 @@ class DisciplineSendView(BaseAPIView):
         responses={201: DisciplineSerializer(many=True), 400: "Ошибка валидации данных"},
     )
     def post(self, request):
+        """
+        Обработка POST-запроса для создания дисциплин.
+        Добавляет только уникальные объекты (по code), дубликаты пропускает.
+        Возвращает списки добавленных и пропущенных.
+        """
         try:
             data = request.data
             is_many = isinstance(data, list)
-            serializer = DisciplineSerializer(data=data, many=is_many)
+            if not is_many:
+                data = [data]
+            codes = [item.get('code') for item in data]
+            existing = set(Discipline.objects.filter(code__in=codes).values_list('code', flat=True))
+            to_create = [item for item in data if item.get('code') not in existing]
+            skipped = [item for item in data if item.get('code') in existing]
+            if not to_create:
+                return Response({
+                    "added": [],
+                    "skipped": skipped,
+                    "message": "Все объекты уже существуют в базе, ничего не добавлено"
+                }, status=status.HTTP_200_OK)
+            serializer = DisciplineSerializer(data=to_create, many=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    {"data": serializer.data, "message": "Дисциплина(ы) сохранены успешно"},
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    "added": serializer.data,
+                    "skipped": skipped,
+                    "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+                }, status=status.HTTP_201_CREATED)
             return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"message": f"Ошибка при создании дисциплины: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -816,16 +913,37 @@ class VacancySendView(BaseAPIView):
         responses={201: VacancySerializer(many=True), 400: "Ошибка валидации данных"},
     )
     def post(self, request):
+        """
+        Обработка POST-запроса для создания вакансий.
+        Добавляет только уникальные объекты (по employer, title), дубликаты пропускает.
+        Возвращает списки добавленных и пропущенных.
+        """
         try:
             data = request.data
             is_many = isinstance(data, list)
-            serializer = VacancySerializer(data=data, many=is_many)
+            if not is_many:
+                data = [data]
+            unique_keys = [(item.get('employer'), item.get('title')) for item in data]
+            existing = set(Vacancy.objects.filter(
+                employer_id__in=[k[0] for k in unique_keys if k[0] is not None],
+                title__in=[k[1] for k in unique_keys if k[1] is not None]
+            ).values_list('employer_id', 'title'))
+            to_create = [item for item in data if (item.get('employer'), item.get('title')) not in existing]
+            skipped = [item for item in data if (item.get('employer'), item.get('title')) in existing]
+            if not to_create:
+                return Response({
+                    "added": [],
+                    "skipped": skipped,
+                    "message": "Все объекты уже существуют в базе, ничего не добавлено"
+                }, status=status.HTTP_200_OK)
+            serializer = VacancySerializer(data=to_create, many=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    {"data": serializer.data, "message": "Вакансия(и) сохранены успешно"},
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    "added": serializer.data,
+                    "skipped": skipped,
+                    "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+                }, status=status.HTTP_201_CREATED)
             return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"message": f"Ошибка при создании вакансии: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -914,16 +1032,34 @@ class ACMSendView(BaseAPIView):
         responses={201: ACMSerializer(many=True), 400: "Ошибка валидации данных"},
     )
     def post(self, request):
+        """
+        Обработка POST-запроса для создания матриц академических компетенций.
+        Добавляет только уникальные объекты (по curriculum), дубликаты пропускает.
+        Возвращает списки добавленных и пропущенных.
+        """
         try:
             data = request.data
             is_many = isinstance(data, list)
-            serializer = ACMSerializer(data=data, many=is_many)
+            if not is_many:
+                data = [data]
+            curriculums = [item.get('curriculum') for item in data]
+            existing = set(ACM.objects.filter(curriculum_id__in=curriculums).values_list('curriculum_id', flat=True))
+            to_create = [item for item in data if item.get('curriculum') not in existing]
+            skipped = [item for item in data if item.get('curriculum') in existing]
+            if not to_create:
+                return Response({
+                    "added": [],
+                    "skipped": skipped,
+                    "message": "Все объекты уже существуют в базе, ничего не добавлено"
+                }, status=status.HTTP_200_OK)
+            serializer = ACMSerializer(data=to_create, many=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    {"data": serializer.data, "message": "Матрица(ы) сохранены успешно"},
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    "added": serializer.data,
+                    "skipped": skipped,
+                    "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+                }, status=status.HTTP_201_CREATED)
             return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"message": f"Ошибка при создании матрицы: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -1012,16 +1148,34 @@ class VCMSendView(BaseAPIView):
         responses={201: VCMSerializer(many=True), 400: "Ошибка валидации данных"},
     )
     def post(self, request):
+        """
+        Обработка POST-запроса для создания профилей компетенций вакансии.
+        Добавляет только уникальные объекты (по vacancy_name), дубликаты пропускает.
+        Возвращает списки добавленных и пропущенных.
+        """
         try:
             data = request.data
             is_many = isinstance(data, list)
-            serializer = VCMSerializer(data=data, many=is_many)
+            if not is_many:
+                data = [data]
+            names = [item.get('vacancy_name') for item in data]
+            existing = set(VCM.objects.filter(vacancy_name__in=names).values_list('vacancy_name', flat=True))
+            to_create = [item for item in data if item.get('vacancy_name') not in existing]
+            skipped = [item for item in data if item.get('vacancy_name') in existing]
+            if not to_create:
+                return Response({
+                    "added": [],
+                    "skipped": skipped,
+                    "message": "Все объекты уже существуют в базе, ничего не добавлено"
+                }, status=status.HTTP_200_OK)
+            serializer = VCMSerializer(data=to_create, many=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    {"data": serializer.data, "message": "Профиль(и) сохранены успешно"},
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    "added": serializer.data,
+                    "skipped": skipped,
+                    "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+                }, status=status.HTTP_201_CREATED)
             return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"message": f"Ошибка при создании профиля: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -1110,16 +1264,34 @@ class UCMSendView(BaseAPIView):
         responses={201: UCMSerializer(many=True), 400: "Ошибка валидации данных"},
     )
     def post(self, request):
+        """
+        Обработка POST-запроса для создания матриц компетенций пользователя.
+        Добавляет только уникальные объекты (по user_id), дубликаты пропускает.
+        Возвращает списки добавленных и пропущенных.
+        """
         try:
             data = request.data
             is_many = isinstance(data, list)
-            serializer = UCMSerializer(data=data, many=is_many)
+            if not is_many:
+                data = [data]
+            user_ids = [item.get('user_id') for item in data]
+            existing = set(UCM.objects.filter(user_id__in=user_ids).values_list('user_id', flat=True))
+            to_create = [item for item in data if item.get('user_id') not in existing]
+            skipped = [item for item in data if item.get('user_id') in existing]
+            if not to_create:
+                return Response({
+                    "added": [],
+                    "skipped": skipped,
+                    "message": "Все объекты уже существуют в базе, ничего не добавлено"
+                }, status=status.HTTP_200_OK)
+            serializer = UCMSerializer(data=to_create, many=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    {"data": serializer.data, "message": "Матрица(ы) сохранены успешно"},
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    "added": serializer.data,
+                    "skipped": skipped,
+                    "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+                }, status=status.HTTP_201_CREATED)
             return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"message": f"Ошибка при создании матрицы: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
