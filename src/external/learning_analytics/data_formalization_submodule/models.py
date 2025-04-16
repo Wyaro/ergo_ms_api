@@ -4,21 +4,85 @@ from src.external.learning_analytics.models import (
     Employer
 )
 
+
+# Модель специальности (для обучающегося студента)
+class Speciality(models.Model):
+    """
+    Модель Speciality представляет собой информацию о специальности (направлении подготовки).
+
+    Attributes:
+        code (CharField): Код специальности. Максимальная длина — 20 символов, уникальный.
+        name (CharField): Наименование специальности. Максимальная длина — 255 символов.
+        specialization (CharField): Наименование специализации. Максимальная длина - 255 символов.
+        department (CharField): Кафедра, выпускающая специальность. Максимальная длина - 255 символов.
+        faculty (CharField): Факультет. Максимальная длина - 255 символов.
+    """
+    code = models.CharField(max_length=20, unique=True, verbose_name="Код специальности")
+    name = models.CharField(max_length=255, verbose_name="Специальность")
+    specialization = models.CharField(max_length=255, verbose_name="Специализация")
+    department = models.CharField(max_length=255, verbose_name="Кафедра")
+    faculty = models.CharField(max_length=255, verbose_name="Факультет")
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+    class Meta:
+        verbose_name = "Специальность"
+        verbose_name_plural = "Специальности"
+        db_table = "la_df_speciality" 
+
+class Curriculum(models.Model):
+    """
+    Модель Curriculum представляет собой учебный план специальности.
+
+    Attributes:
+        speciality (ForeignKey): Внешний ключ на модель Speciality, может быть пустым.
+        education_duration (PositiveSmallIntegerField): Срок получения образования.
+        year_of_admission (CharField): Год поступления. Максимальная длина - 4 символа.
+        is_active (BooleanField): Флаг актуальности учебного плана. По умолчанию True.
+    """
+    speciality = models.ForeignKey(
+        Speciality,
+        on_delete=models.CASCADE,
+        verbose_name="Специальность",
+        blank=True,
+        null=True
+    )
+    education_duration = models.PositiveSmallIntegerField(verbose_name="Срок получения образования")
+    year_of_admission = models.CharField(max_length=4, verbose_name="Год поступления")
+    is_active = models.BooleanField(default=True, verbose_name="Актуальность учебного плана")
+
+    def __str__(self):
+        return f"Учебный план для {self.speciality}"
+
+    class Meta:
+        verbose_name = "Учебный план"
+        verbose_name_plural = "Учебные планы"
+        db_table = "la_df_curriculum"
+
 # Модель Technology представляет ту или иную технологию, осваиваемую в процессе изучения дисциплин.
 class Technology(models.Model):
     """
-    Модель Technology представляет ту или иную технологию, осваиваемую в процессе изучения дисциплин.
+    Модель Technology представляет технологию, осваиваемую в процессе изучения дисциплин.
 
     Attributes:
         name (CharField): Название технологии. Максимальная длина — 60 символов.
         description (TextField): Описание технологии. Максимальная длина — 400 символов.
-        popularity (DecimalField): Уровень популярности технологии от 0 до 100, %.
-        rating (DecimalField): Рейтинг технологии от 0 до 5.
+        popularity (DecimalField): Уровень популярности технологии от 0 до 100, %. 4 цифры, 2 после запятой.
+        rating (DecimalField): Рейтинг технологии от 0 до 5. 3 цифры, 2 после запятой.
     """
     name = models.CharField(max_length=60)
     description = models.TextField(max_length=400)
-    popularity = models.DecimalField(max_digits=4, decimal_places=2)
-    rating = models.DecimalField(max_digits=3, decimal_places=2)
+    popularity = models.DecimalField(
+        max_digits=4, 
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    rating = models.DecimalField(
+        max_digits=3, 
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(5)]
+    )
 
     def __str__(self):
         return f"{self.name} - {self.description}"
@@ -26,6 +90,7 @@ class Technology(models.Model):
     class Meta:
         verbose_name = "Технология"
         verbose_name_plural = "Технологии"
+        db_table = "la_df_technology" 
 
 # Модель Competency представляет компетенции 
 class Competency(models.Model):
@@ -49,8 +114,8 @@ class Competency(models.Model):
         ('UNDERSTAND', 'Понимание'),
         ('APPLY', 'Применение'),
         ('ANALYZE', 'Анализ'),
-        ('EVALUATE', 'Синтез'),
-        ('CREATE', 'Оценка'),
+        ('EVALUATE', 'Оценка'),
+        ('CREATE', 'Создание'),
     ]
 
 
@@ -97,39 +162,33 @@ class Competency(models.Model):
     class Meta:
         verbose_name = "Компетенция"
         verbose_name_plural = "Компетенции"
+        db_table = "la_df_competency"
 
 
     def __str__(self):
-        return f"{self.code} ({self.name})"
-        
-# Модель специальности
-class Speciality(models.Model):
+        return f"{self.code} ({self.name})" 
+
+# Модель базовой дисциплины (справочник)
+class BaseDiscipline(models.Model):
     """
-    Модель Speciality представляет собой информацию о специальности (направлении подготовки).
+    Модель BaseDiscipline представляет собой справочник базовых дисциплин.
 
     Attributes:
-        code (CharField): Код специальности. Максимальная длина — 20 символов.
-        name (CharField): Наименование специальности. Максимальная длина — 255 символов.
-        specialization (CharField): Наименование специализации. Максимальная длина - 255 символов.
-        department (CharField): Кафедра, выпускающая специальность. Максимальная длина - 255 символов.
-        faculty (CharField): Факультет. Максимальная длина - 255 символов.
-        education_duration (SmallAutoField): Срок получения образования. Подразумевается измерение в количестве месяцев. 
-        year_of_admission (CharField): Год поступления (для учета различий в УП)
+        code (CharField): Код дисциплины. Максимальная длина - 10 символов, уникальный.
+        name (CharField): Наименование дисциплины. Максимальная длина - 255 символов.
+        description (TextField): Описание дисциплины. Максимальная длина - 400 символов.
     """
-    code = models.CharField(max_length=20, unique=True, verbose_name="Код специальности")
-    name = models.CharField(max_length=255, verbose_name="Специальность")
-    specialization = models.CharField(max_length=255, verbose_name="Специализация")
-    department = models.CharField(max_length=255, verbose_name="Кафедра")
-    faculty = models.CharField(max_length=255, verbose_name="Факультет")
-    education_duration = models.PositiveSmallIntegerField(verbose_name="Срок получения образования")
-    year_of_admission = models.CharField(max_length=4, verbose_name="Год поступления")
+    code = models.CharField(max_length=10, unique=True, verbose_name="Код дисциплины")
+    name = models.CharField(max_length=255, verbose_name="Наименование")
+    description = models.TextField(max_length=400, verbose_name="Описание")
 
     def __str__(self):
         return f"{self.code} - {self.name}"
 
     class Meta:
-        verbose_name = "Специальность"
-        verbose_name_plural = "Специальности"
+        verbose_name = "Базовая дисциплина"
+        verbose_name_plural = "Базовые дисциплины"
+        db_table = "la_df_base_discipline"
 
 # Модель дисциплины
 class Discipline(models.Model):
@@ -137,22 +196,27 @@ class Discipline(models.Model):
     Модель Discipline представляет собой информацию о дисциплине.
     
     Attributes:
-        code (CharField): Код дисциплины. Максимальна длина - 10 символов.
+        curriculum (ForeignKey): Связь с моделью Curriculum, может быть пустым.
+        base_discipline (ForeignKey): Связь с моделью BaseDiscipline, может быть пустым.
+        code (CharField): Код дисциплины. Максимальная длина - 10 символов, уникальный.
         name (CharField): Наименование дисциплины. Максимальная длина - 255 символов.
         semesters (CharField): Период освоения дисциплины (номера семестров через ','). Максимальная длина - 12 символов.
-        contact_work_hours (SmallAutoField): Длительность контактной работы, часы. 
-        independent_work_hours (SmallAutoField): Длительность самостоятельной работы, часы.
-        control_work_hours (SmallAutoField): Длительность контроля, часы
-        competencies (JSONField): Перечень осваиваемых компетенций
+        contact_work_hours (PositiveSmallIntegerField): Длительность контактной работы, часы.
+        independent_work_hours (PositiveSmallIntegerField): Длительность самостоятельной работы, часы.
+        control_work_hours (PositiveSmallIntegerField): Длительность контроля, часы.
+        technologies (ManyToManyField): Связь с моделью Technology.
+        competencies (ManyToManyField): Связь с моделью Competency.
     """
+    curriculum = models.ForeignKey(Curriculum, verbose_name="Учебный план", on_delete=models.CASCADE, blank=True, null=True, related_name="curriculum_disciplines")
+    base_discipline = models.ForeignKey(BaseDiscipline, verbose_name="Базовая дисциплина", on_delete=models.CASCADE, blank=True, null=True, related_name="base_discipline")
     code = models.CharField(max_length=10, unique=True, verbose_name="Код дисциплины")
     name = models.CharField(max_length=255, verbose_name="Наименование")
-    # Подразумевается максимум 6 семестров
     semesters = models.CharField(max_length=12, verbose_name="Период освоения (семестры)")
     contact_work_hours = models.PositiveSmallIntegerField(verbose_name="Контактная работа, ч")
     independent_work_hours = models.PositiveSmallIntegerField(verbose_name="Самостоятельная работа, ч")
     control_work_hours = models.PositiveSmallIntegerField(verbose_name="Контроль, ч")
-    competencies = models.JSONField(verbose_name="Осваиваемые компетенции")
+    technologies = models.ManyToManyField(Technology, verbose_name="Технологии", blank=True, related_name="disciplines", db_table="la_df_disc_tech_rel")
+    competencies = models.ManyToManyField(Competency, verbose_name="Компетенции", blank=True, related_name="disciplines", db_table="la_df_submodule_disc_comp_rel")
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -160,6 +224,62 @@ class Discipline(models.Model):
     class Meta:
         verbose_name = "Дисциплина"
         verbose_name_plural = "Дисциплины"
+        db_table = "la_df_discipline"
+
+
+# Модель Vacancy представляет вакансию
+class Vacancy(models.Model):
+    """
+    Модель Vacancy представляет вакансию
+
+    Attributes:
+        employer (ForeignKey): Внешний ключ на модель Employer. Связывает вакансию с работодателем.
+        title (CharField): Название вакансии. Максимальная длина - 255 символов.
+        description (TextField): Описание вакансии, её предметной области и сферы деятельности в целом.
+        requirements (TextField): Требования к кандидату.
+        responsibilities (TextField): Обязанности сотрудника.
+        created_at (DateTimeField): Дата и время появления первичного упоминания вакансии.
+        updated_at (DateTimeField): Дата и время последней редакции информации о вакансии.
+        salary_min (DecimalField): Минимальная зарплата по вакансии.
+        salary_max (DecimalField): Максимальная зарплата по вакансии.
+        is_active (BooleanField): Активна ли вакансия.
+        location (CharField): Местоположение работы.
+        employment_type (CharField): Тип занятости (полная/частичная/удаленная).
+    """
+
+    EMPLOYMENT_CHOICES = [
+        ('FULL', 'Полная занятость'),
+        ('PART', 'Частичная занятость'),
+        ('REMOTE', 'Удаленная работа'),
+    ]
+
+    employer = models.ForeignKey(Employer, on_delete=models.CASCADE, related_name="vacancies", verbose_name="Работодатель")
+    title = models.CharField(max_length=255, verbose_name="Название вакансии")
+    description = models.TextField(verbose_name="Описание вакансии")
+    requirements = models.TextField(verbose_name="Требования", blank=True)
+    responsibilities = models.TextField(verbose_name="Обязанности", blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания записи")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
+    salary_min = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Минимальная зарплата", null=True, blank=True)
+    salary_max = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Максимальная зарплата", null=True, blank=True)
+    is_active = models.BooleanField(default=True, verbose_name="Активна")
+    location = models.CharField(max_length=255, verbose_name="Местоположение", blank=True)
+    employment_type = models.CharField(max_length=10, choices=EMPLOYMENT_CHOICES, default='FULL', verbose_name="Тип занятости")
+    technologies = models.ManyToManyField(Technology, verbose_name="Технологии", blank=True, related_name="vacancies", db_table="la_df_vacancy_tech_rel")
+    competencies = models.ManyToManyField(Competency, verbose_name="Компетенции", blank=True, related_name="vacancies", db_table="la_df_vacancy_comp_rel")
+
+    def __str__(self):
+        return f"{self.title} ({self.employer.company_name})"
+    
+    class Meta:
+        verbose_name = "Вакансия"
+        verbose_name_plural = "Вакансии"
+        db_table = "la_df_vacancy"
+
+    def clean(self):
+        if self.salary_max and self.salary_min and self.salary_max < self.salary_min:
+            raise ValidationError("Максимальная зарплата не может быть меньше минимальной")
+
 
 # Модель матрицы академических компетенций
 class ACM(models.Model):
@@ -174,9 +294,9 @@ class ACM(models.Model):
     """
 
 
-    speciality = models.ForeignKey(
-        Speciality,
-        on_delete=models.SET_NULL,
+    curriculum = models.ForeignKey(
+        Curriculum,
+        on_delete=models.CASCADE,
         verbose_name="Специальность",
         blank = True,
         null = True)  
@@ -189,27 +309,26 @@ class ACM(models.Model):
     class Meta:
         verbose_name = "Матрица академических компетенций"
         verbose_name_plural = "Матрицы академических компетенций"
+        db_table = "la_df_academic_competence_matrix"
 
 # Модель компетентностного профиля вакансии
 class VCM(models.Model):
     """
-    Модель CompetencyProfileOfVacancy - модель, представляющая компетентностный профиль вакансии, на основании
-    которой в дальнейшем будет формироваться дополнительный вектор индивидуальных траекторий обучения, соотевтствующий
-    запросам работодателей.
+    Модель CompetencyProfileOfVacancy - модель, представляющая компетентностный профиль вакансии.
 
     Attributes:
-        vacancy_name (CharField): Название вакансии, отражающее содержание компетентностного профиля
-        employer  (ForeignKey): Внешний ключ, связывающий компетентностный профиль вакансии с моделью работодателя
-        competencies_stack  (JSONField): Перечень запрашиваемых компетенций работодателем
-        technology_stack (JSONField): Перечень технологий, запрашиваемых работодателем
-        descr (TextField): Описание вакансии (исходное)
+        vacancy_name (CharField): Название вакансии. Максимальная длина - 255 символов.
+        vacancy (ForeignKey): Внешний ключ на модель Vacancy, может быть пустым.
+        competencies_stack (JSONField): Перечень требующихся компетенций.
+        technology_stack (JSONField): Стек требуемых технологий.
+        description (TextField): Описание вакансии. Максимальная длина - 400 символов.
     """
 
     vacancy_name = models.CharField(max_length=255, verbose_name="Название вакансии")
-    employer = models.ForeignKey(
-        Employer, 
-        on_delete=models.SET_NULL,
-        verbose_name="ID работодателя",
+    vacancy = models.ForeignKey(
+        Vacancy, 
+        on_delete=models.CASCADE,
+        verbose_name="ID вакансии",
         blank = True,
         null = True)
     competencies_stack = models.JSONField(verbose_name="Перечень требующихся компетенций")
@@ -222,11 +341,16 @@ class VCM(models.Model):
     class Meta:
         verbose_name = "Компетентностный профиль вакансии"
         verbose_name_plural = "Компетентностные профили вакансии"
+        db_table = "la_df_competency_profile_of_vacancy"
 
 class UCM(models.Model):
     """
-    Модель UserCompentencyMatrix - модель, представляющая матрицу компетенций пользователя, на основании
-    которой в дальнейшем будет формироваться индивидуальная траектория обучения.
+    Модель UserCompetencyMatrix - модель, представляющая матрицу компетенций пользователя.
+
+    Attributes:
+        user_id (PositiveSmallIntegerField): ID пользователя.
+        competencies_stack (JSONField): Перечень имеющихся компетенций.
+        technology_stack (JSONField): Стек изучаемых технологий.
     """
 
     user_id = models.PositiveSmallIntegerField(verbose_name="ID пользователя")
@@ -239,3 +363,4 @@ class UCM(models.Model):
     class Meta:
         verbose_name = "Матрица компетенций пользователя"
         verbose_name_plural = "Матрицы компетенций пользователей"
+        db_table = "la_df_user_competency_matrix"

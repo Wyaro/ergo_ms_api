@@ -28,5 +28,4 @@ class Employer(models.Model):
     class Meta:
         verbose_name = "Работодатель"
         verbose_name_plural = "Работодатели"
-
-
+        db_table = "la_employer"
