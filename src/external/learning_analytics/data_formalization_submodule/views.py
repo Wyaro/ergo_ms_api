@@ -17,6 +17,7 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework.views import APIView 
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework import viewsets
 
 from drf_yasg.utils import swagger_auto_schema # type: ignore
 from drf_yasg import openapi # type: ignore 
@@ -278,6 +279,52 @@ class SpecialityDeleteView(BaseAPIView):
             status=status.HTTP_204_NO_CONTENT
         )
 
+class SpecialityView(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: SpecialitySerializer(many=True)})
+    def list(self, request):
+        queryset = Speciality.objects.all()
+        serializer = SpecialitySerializer(queryset, many=True)
+        return Response({"data": serializer.data, "message": "Все специальности получены успешно"})
+
+    @swagger_auto_schema(request_body=SpecialitySerializer(many=True), responses={201: SpecialitySerializer(many=True)})
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        codes = [item.get('code') for item in data]
+        existing = set(Speciality.objects.filter(code__in=codes).values_list('code', flat=True))
+        to_create = [item for item in data if item.get('code') not in existing]
+        skipped = [item for item in data if item.get('code') in existing]
+        if not to_create:
+            return Response({"added": [], "skipped": skipped, "message": "Все объекты уже существуют в базе, ничего не добавлено"}, status=status.HTTP_200_OK)
+        serializer = SpecialitySerializer(data=to_create, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"added": serializer.data, "skipped": skipped, "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"}, status=status.HTTP_201_CREATED)
+        return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={200: SpecialitySerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        obj = get_object_or_404(Speciality, pk=pk)
+        serializer = SpecialitySerializer(obj)
+        return Response({"data": serializer.data, "message": "Специальность получена успешно"})
+
+    @swagger_auto_schema(request_body=SpecialitySerializer, responses={200: SpecialitySerializer(), 400: 'Ошибка', 404: 'Not found'})
+    def update(self, request, pk=None):
+        obj = get_object_or_404(Speciality, pk=pk)
+        serializer = SpecialitySerializer(obj, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": "Информация о специальности обновлена успешно"})
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={204: 'No content', 404: 'Not found'})
+    def destroy(self, request, pk=None):
+        obj = get_object_or_404(Speciality, pk=pk)
+        obj.delete()
+        return Response({"message": "Специальность успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+
 #######################
 # Curriculum Views
 #######################
@@ -401,6 +448,56 @@ class CurriculumDeleteView(BaseAPIView):
         curriculum.delete()
         return Response({"message": "Учебный план успешно удален"}, status=status.HTTP_204_NO_CONTENT)
 
+class CurriculumView(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: CurriculumSerializer(many=True)})
+    def list(self, request):
+        queryset = Curriculum.objects.all()
+        serializer = CurriculumSerializer(queryset, many=True)
+        return Response({"data": serializer.data, "message": "Все учебные планы получены успешно"})
+
+    @swagger_auto_schema(request_body=CurriculumSerializer(many=True), responses={201: CurriculumSerializer(many=True)})
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        unique_keys = [(item.get('speciality'), item.get('education_duration'), item.get('year_of_admission')) for item in data]
+        existing = set(Curriculum.objects.filter(
+            speciality_id__in=[k[0] for k in unique_keys if k[0] is not None],
+            education_duration__in=[k[1] for k in unique_keys if k[1] is not None],
+            year_of_admission__in=[k[2] for k in unique_keys if k[2] is not None]
+        ).values_list('speciality_id', 'education_duration', 'year_of_admission'))
+        to_create = [item for item in data if (item.get('speciality'), item.get('education_duration'), item.get('year_of_admission')) not in existing]
+        skipped = [item for item in data if (item.get('speciality'), item.get('education_duration'), item.get('year_of_admission')) in existing]
+        if not to_create:
+            return Response({"added": [], "skipped": skipped, "message": "Все объекты уже существуют в базе, ничего не добавлено"}, status=status.HTTP_200_OK)
+        serializer = CurriculumSerializer(data=to_create, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"added": serializer.data, "skipped": skipped, "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"}, status=status.HTTP_201_CREATED)
+        return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={200: CurriculumSerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        obj = get_object_or_404(Curriculum, pk=pk)
+        serializer = CurriculumSerializer(obj)
+        return Response({"data": serializer.data, "message": "Учебный план получен успешно"})
+
+    @swagger_auto_schema(request_body=CurriculumSerializer, responses={200: CurriculumSerializer(), 400: 'Ошибка', 404: 'Not found'})
+    def update(self, request, pk=None):
+        obj = get_object_or_404(Curriculum, pk=pk)
+        serializer = CurriculumSerializer(obj, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": "Информация об учебном плане обновлена успешно"})
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={204: 'No content', 404: 'Not found'})
+    def destroy(self, request, pk=None):
+        obj = get_object_or_404(Curriculum, pk=pk)
+        obj.delete()
+        return Response({"message": "Учебный план успешно удален"}, status=status.HTTP_204_NO_CONTENT)
+
 #######################
 # Technology Views
 #######################
@@ -515,6 +612,52 @@ class TechnologyDeleteView(BaseAPIView):
         if not technology:
             return Response({"message": "Технология не найдена"}, status=status.HTTP_404_NOT_FOUND)
         technology.delete()
+        return Response({"message": "Технология успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+
+class TechnologyView(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: TechnologySerializer(many=True)})
+    def list(self, request):
+        queryset = Technology.objects.all()
+        serializer = TechnologySerializer(queryset, many=True)
+        return Response({"data": serializer.data, "message": "Все технологии получены успешно"})
+
+    @swagger_auto_schema(request_body=TechnologySerializer(many=True), responses={201: TechnologySerializer(many=True)})
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        names = [item.get('name') for item in data]
+        existing = set(Technology.objects.filter(name__in=names).values_list('name', flat=True))
+        to_create = [item for item in data if item.get('name') not in existing]
+        skipped = [item for item in data if item.get('name') in existing]
+        if not to_create:
+            return Response({"added": [], "skipped": skipped, "message": "Все объекты уже существуют в базе, ничего не добавлено"}, status=status.HTTP_200_OK)
+        serializer = TechnologySerializer(data=to_create, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"added": serializer.data, "skipped": skipped, "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"}, status=status.HTTP_201_CREATED)
+        return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={200: TechnologySerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        obj = get_object_or_404(Technology, pk=pk)
+        serializer = TechnologySerializer(obj)
+        return Response({"data": serializer.data, "message": "Технология получена успешно"})
+
+    @swagger_auto_schema(request_body=TechnologySerializer, responses={200: TechnologySerializer(), 400: 'Ошибка', 404: 'Not found'})
+    def update(self, request, pk=None):
+        obj = get_object_or_404(Technology, pk=pk)
+        serializer = TechnologySerializer(obj, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": "Информация о технологии обновлена успешно"})
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={204: 'No content', 404: 'Not found'})
+    def destroy(self, request, pk=None):
+        obj = get_object_or_404(Technology, pk=pk)
+        obj.delete()
         return Response({"message": "Технология успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
 
 #######################
@@ -633,6 +776,52 @@ class CompetencyDeleteView(BaseAPIView):
         competency.delete()
         return Response({"message": "Компетенция успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
 
+class CompetencyView(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: CompetencySerializer(many=True)})
+    def list(self, request):
+        queryset = Competency.objects.all()
+        serializer = CompetencySerializer(queryset, many=True)
+        return Response({"data": serializer.data, "message": "Все компетенции получены успешно"})
+
+    @swagger_auto_schema(request_body=CompetencySerializer(many=True), responses={201: CompetencySerializer(many=True)})
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        codes = [item.get('code') for item in data]
+        existing = set(Competency.objects.filter(code__in=codes).values_list('code', flat=True))
+        to_create = [item for item in data if item.get('code') not in existing]
+        skipped = [item for item in data if item.get('code') in existing]
+        if not to_create:
+            return Response({"added": [], "skipped": skipped, "message": "Все объекты уже существуют в базе, ничего не добавлено"}, status=status.HTTP_200_OK)
+        serializer = CompetencySerializer(data=to_create, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"added": serializer.data, "skipped": skipped, "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"}, status=status.HTTP_201_CREATED)
+        return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={200: CompetencySerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        obj = get_object_or_404(Competency, pk=pk)
+        serializer = CompetencySerializer(obj)
+        return Response({"data": serializer.data, "message": "Компетенция получена успешно"})
+
+    @swagger_auto_schema(request_body=CompetencySerializer, responses={200: CompetencySerializer(), 400: 'Ошибка', 404: 'Not found'})
+    def update(self, request, pk=None):
+        obj = get_object_or_404(Competency, pk=pk)
+        serializer = CompetencySerializer(obj, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": "Информация о компетенции обновлена успешно"})
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={204: 'No content', 404: 'Not found'})
+    def destroy(self, request, pk=None):
+        obj = get_object_or_404(Competency, pk=pk)
+        obj.delete()
+        return Response({"message": "Компетенция успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+
 #######################
 # BaseDiscipline Views
 #######################
@@ -749,6 +938,52 @@ class BaseDisciplineDeleteView(BaseAPIView):
         base_discipline.delete()
         return Response({"message": "Базовая дисциплина успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
 
+class BaseDisciplineView(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: BaseDisciplineSerializer(many=True)})
+    def list(self, request):
+        queryset = BaseDiscipline.objects.all()
+        serializer = BaseDisciplineSerializer(queryset, many=True)
+        return Response({"data": serializer.data, "message": "Все базовые дисциплины получены успешно"})
+
+    @swagger_auto_schema(request_body=BaseDisciplineSerializer(many=True), responses={201: BaseDisciplineSerializer(many=True)})
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        codes = [item.get('code') for item in data]
+        existing = set(BaseDiscipline.objects.filter(code__in=codes).values_list('code', flat=True))
+        to_create = [item for item in data if item.get('code') not in existing]
+        skipped = [item for item in data if item.get('code') in existing]
+        if not to_create:
+            return Response({"added": [], "skipped": skipped, "message": "Все объекты уже существуют в базе, ничего не добавлено"}, status=status.HTTP_200_OK)
+        serializer = BaseDisciplineSerializer(data=to_create, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"added": serializer.data, "skipped": skipped, "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"}, status=status.HTTP_201_CREATED)
+        return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={200: BaseDisciplineSerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        obj = get_object_or_404(BaseDiscipline, pk=pk)
+        serializer = BaseDisciplineSerializer(obj)
+        return Response({"data": serializer.data, "message": "Базовая дисциплина получена успешно"})
+
+    @swagger_auto_schema(request_body=BaseDisciplineSerializer, responses={200: BaseDisciplineSerializer(), 400: 'Ошибка', 404: 'Not found'})
+    def update(self, request, pk=None):
+        obj = get_object_or_404(BaseDiscipline, pk=pk)
+        serializer = BaseDisciplineSerializer(obj, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": "Информация о базовой дисциплине обновлена успешно"})
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={204: 'No content', 404: 'Not found'})
+    def destroy(self, request, pk=None):
+        obj = get_object_or_404(BaseDiscipline, pk=pk)
+        obj.delete()
+        return Response({"message": "Базовая дисциплина успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+
 #######################
 # Discipline Views
 #######################
@@ -863,6 +1098,52 @@ class DisciplineDeleteView(BaseAPIView):
         if not discipline:
             return Response({"message": "Дисциплина не найдена"}, status=status.HTTP_404_NOT_FOUND)
         discipline.delete()
+        return Response({"message": "Дисциплина успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+
+class DisciplineView(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: DisciplineSerializer(many=True)})
+    def list(self, request):
+        queryset = Discipline.objects.all()
+        serializer = DisciplineSerializer(queryset, many=True)
+        return Response({"data": serializer.data, "message": "Все дисциплины получены успешно"})
+
+    @swagger_auto_schema(request_body=DisciplineSerializer(many=True), responses={201: DisciplineSerializer(many=True)})
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        codes = [item.get('code') for item in data]
+        existing = set(Discipline.objects.filter(code__in=codes).values_list('code', flat=True))
+        to_create = [item for item in data if item.get('code') not in existing]
+        skipped = [item for item in data if item.get('code') in existing]
+        if not to_create:
+            return Response({"added": [], "skipped": skipped, "message": "Все объекты уже существуют в базе, ничего не добавлено"}, status=status.HTTP_200_OK)
+        serializer = DisciplineSerializer(data=to_create, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"added": serializer.data, "skipped": skipped, "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"}, status=status.HTTP_201_CREATED)
+        return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={200: DisciplineSerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        obj = get_object_or_404(Discipline, pk=pk)
+        serializer = DisciplineSerializer(obj)
+        return Response({"data": serializer.data, "message": "Дисциплина получена успешно"})
+
+    @swagger_auto_schema(request_body=DisciplineSerializer, responses={200: DisciplineSerializer(), 400: 'Ошибка', 404: 'Not found'})
+    def update(self, request, pk=None):
+        obj = get_object_or_404(Discipline, pk=pk)
+        serializer = DisciplineSerializer(obj, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": "Информация о дисциплине обновлена успешно"})
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={204: 'No content', 404: 'Not found'})
+    def destroy(self, request, pk=None):
+        obj = get_object_or_404(Discipline, pk=pk)
+        obj.delete()
         return Response({"message": "Дисциплина успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
 
 #######################
@@ -984,6 +1265,55 @@ class VacancyDeleteView(BaseAPIView):
         vacancy.delete()
         return Response({"message": "Вакансия успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
 
+class VacancyView(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: VacancySerializer(many=True)})
+    def list(self, request):
+        queryset = Vacancy.objects.all()
+        serializer = VacancySerializer(queryset, many=True)
+        return Response({"data": serializer.data, "message": "Все вакансии получены успешно"})
+
+    @swagger_auto_schema(request_body=VacancySerializer(many=True), responses={201: VacancySerializer(many=True)})
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        unique_keys = [(item.get('employer'), item.get('title')) for item in data]
+        existing = set(Vacancy.objects.filter(
+            employer_id__in=[k[0] for k in unique_keys if k[0] is not None],
+            title__in=[k[1] for k in unique_keys if k[1] is not None]
+        ).values_list('employer_id', 'title'))
+        to_create = [item for item in data if (item.get('employer'), item.get('title')) not in existing]
+        skipped = [item for item in data if (item.get('employer'), item.get('title')) in existing]
+        if not to_create:
+            return Response({"added": [], "skipped": skipped, "message": "Все объекты уже существуют в базе, ничего не добавлено"}, status=status.HTTP_200_OK)
+        serializer = VacancySerializer(data=to_create, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"added": serializer.data, "skipped": skipped, "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"}, status=status.HTTP_201_CREATED)
+        return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={200: VacancySerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        obj = get_object_or_404(Vacancy, pk=pk)
+        serializer = VacancySerializer(obj)
+        return Response({"data": serializer.data, "message": "Вакансия получена успешно"})
+
+    @swagger_auto_schema(request_body=VacancySerializer, responses={200: VacancySerializer(), 400: 'Ошибка', 404: 'Not found'})
+    def update(self, request, pk=None):
+        obj = get_object_or_404(Vacancy, pk=pk)
+        serializer = VacancySerializer(obj, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": "Информация о вакансии обновлена успешно"})
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={204: 'No content', 404: 'Not found'})
+    def destroy(self, request, pk=None):
+        obj = get_object_or_404(Vacancy, pk=pk)
+        obj.delete()
+        return Response({"message": "Вакансия успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+
 #######################
 # ACM Views
 #######################
@@ -1098,6 +1428,52 @@ class ACMDeleteView(BaseAPIView):
         if not matrix:
             return Response({"message": "Матрица не найдена"}, status=status.HTTP_404_NOT_FOUND)
         matrix.delete()
+        return Response({"message": "Матрица успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+
+class ACMView(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: ACMSerializer(many=True)})
+    def list(self, request):
+        queryset = ACM.objects.all()
+        serializer = ACMSerializer(queryset, many=True)
+        return Response({"data": serializer.data, "message": "Все матрицы получены успешно"})
+
+    @swagger_auto_schema(request_body=ACMSerializer(many=True), responses={201: ACMSerializer(many=True)})
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        curriculums = [item.get('curriculum') for item in data]
+        existing = set(ACM.objects.filter(curriculum_id__in=curriculums).values_list('curriculum_id', flat=True))
+        to_create = [item for item in data if item.get('curriculum') not in existing]
+        skipped = [item for item in data if item.get('curriculum') in existing]
+        if not to_create:
+            return Response({"added": [], "skipped": skipped, "message": "Все объекты уже существуют в базе, ничего не добавлено"}, status=status.HTTP_200_OK)
+        serializer = ACMSerializer(data=to_create, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"added": serializer.data, "skipped": skipped, "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"}, status=status.HTTP_201_CREATED)
+        return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={200: ACMSerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        obj = get_object_or_404(ACM, pk=pk)
+        serializer = ACMSerializer(obj)
+        return Response({"data": serializer.data, "message": "Матрица получена успешно"})
+
+    @swagger_auto_schema(request_body=ACMSerializer, responses={200: ACMSerializer(), 400: 'Ошибка', 404: 'Not found'})
+    def update(self, request, pk=None):
+        obj = get_object_or_404(ACM, pk=pk)
+        serializer = ACMSerializer(obj, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": "Информация о матрице обновлена успешно"})
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={204: 'No content', 404: 'Not found'})
+    def destroy(self, request, pk=None):
+        obj = get_object_or_404(ACM, pk=pk)
+        obj.delete()
         return Response({"message": "Матрица успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
 
 #######################
@@ -1216,6 +1592,52 @@ class VCMDeleteView(BaseAPIView):
         vcm.delete()
         return Response({"message": "Профиль успешно удален"}, status=status.HTTP_204_NO_CONTENT)
 
+class VCMView(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: VCMSerializer(many=True)})
+    def list(self, request):
+        queryset = VCM.objects.all()
+        serializer = VCMSerializer(queryset, many=True)
+        return Response({"data": serializer.data, "message": "Все профили получены успешно"})
+
+    @swagger_auto_schema(request_body=VCMSerializer(many=True), responses={201: VCMSerializer(many=True)})
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        names = [item.get('vacancy_name') for item in data]
+        existing = set(VCM.objects.filter(vacancy_name__in=names).values_list('vacancy_name', flat=True))
+        to_create = [item for item in data if item.get('vacancy_name') not in existing]
+        skipped = [item for item in data if item.get('vacancy_name') in existing]
+        if not to_create:
+            return Response({"added": [], "skipped": skipped, "message": "Все объекты уже существуют в базе, ничего не добавлено"}, status=status.HTTP_200_OK)
+        serializer = VCMSerializer(data=to_create, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"added": serializer.data, "skipped": skipped, "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"}, status=status.HTTP_201_CREATED)
+        return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={200: VCMSerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        obj = get_object_or_404(VCM, pk=pk)
+        serializer = VCMSerializer(obj)
+        return Response({"data": serializer.data, "message": "Профиль получен успешно"})
+
+    @swagger_auto_schema(request_body=VCMSerializer, responses={200: VCMSerializer(), 400: 'Ошибка', 404: 'Not found'})
+    def update(self, request, pk=None):
+        obj = get_object_or_404(VCM, pk=pk)
+        serializer = VCMSerializer(obj, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": "Информация о профиле обновлена успешно"})
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={204: 'No content', 404: 'Not found'})
+    def destroy(self, request, pk=None):
+        obj = get_object_or_404(VCM, pk=pk)
+        obj.delete()
+        return Response({"message": "Профиль успешно удален"}, status=status.HTTP_204_NO_CONTENT)
+
 #######################
 # UCM Views
 #######################
@@ -1330,6 +1752,52 @@ class UCMDeleteView(BaseAPIView):
         if not matrix:
             return Response({"message": "Матрица не найдена"}, status=status.HTTP_404_NOT_FOUND)
         matrix.delete()
+        return Response({"message": "Матрица успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+
+class UCMView(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: UCMSerializer(many=True)})
+    def list(self, request):
+        queryset = UCM.objects.all()
+        serializer = UCMSerializer(queryset, many=True)
+        return Response({"data": serializer.data, "message": "Все матрицы получены успешно"})
+
+    @swagger_auto_schema(request_body=UCMSerializer(many=True), responses={201: UCMSerializer(many=True)})
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        user_ids = [item.get('user_id') for item in data]
+        existing = set(UCM.objects.filter(user_id__in=user_ids).values_list('user_id', flat=True))
+        to_create = [item for item in data if item.get('user_id') not in existing]
+        skipped = [item for item in data if item.get('user_id') in existing]
+        if not to_create:
+            return Response({"added": [], "skipped": skipped, "message": "Все объекты уже существуют в базе, ничего не добавлено"}, status=status.HTTP_200_OK)
+        serializer = UCMSerializer(data=to_create, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"added": serializer.data, "skipped": skipped, "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"}, status=status.HTTP_201_CREATED)
+        return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={200: UCMSerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        obj = get_object_or_404(UCM, pk=pk)
+        serializer = UCMSerializer(obj)
+        return Response({"data": serializer.data, "message": "Матрица получена успешно"})
+
+    @swagger_auto_schema(request_body=UCMSerializer, responses={200: UCMSerializer(), 400: 'Ошибка', 404: 'Not found'})
+    def update(self, request, pk=None):
+        obj = get_object_or_404(UCM, pk=pk)
+        serializer = UCMSerializer(obj, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": "Информация о матрице обновлена успешно"})
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={204: 'No content', 404: 'Not found'})
+    def destroy(self, request, pk=None):
+        obj = get_object_or_404(UCM, pk=pk)
+        obj.delete()
         return Response({"message": "Матрица успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
 
 

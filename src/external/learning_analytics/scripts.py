@@ -26,7 +26,7 @@ def get_employers(employer_id: int = None):
                 updated_at,
                 rating
             from
-                learning_analytics_employer
+                la_employer
             where id = %s
             """,
             (employer_id,),  # Параметр для подстановки в SQL-запрос
@@ -37,7 +37,7 @@ def get_employers(employer_id: int = None):
             select
                 *
             from
-                learning_analytics_employer
+                la_employer
             """,
             (),  # Пустой кортеж параметров, так как запрос не требует параметров
         )

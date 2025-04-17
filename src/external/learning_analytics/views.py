@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
-from rest_framework import status
+from rest_framework import status, viewsets
 from src.external.learning_analytics.models import (
     Employer
 )
@@ -48,228 +48,111 @@ def handle_db_errors(func):
             )
     return wrapper
 
-# Представление данных для удаления (DELETE) работодателей
-class EmployerDeleteView(BaseAPIView):
+class EmployerView(viewsets.ViewSet):
     @swagger_auto_schema(
-        operation_description="Удаление работодателя по идентификатору",
-        manual_parameters=[
-            openapi.Parameter(
-                'id',
-                openapi.IN_QUERY,
-                type=openapi.TYPE_INTEGER,
-                required=True,
-                description="Идентификатор работодателя"
-            )
-        ],
-        responses={
-            204: "Работодатель успешно удален",  # Успешный ответ (без содержимого)
-            400: "Идентификатор работодателя не указан",  # Ошибка
-            404: "Работодатель не найден"  # Ошибка
-        }
+        operation_description="Получение информации о всех работодателях",
+        responses={200: "Информация о работодателях"}
     )
-    def delete(self, request):
-        """
-        Обработка DELETE-запроса для удаления работодателя.
-        """
-        employer_id = request.query_params.get('id')  # Получаем параметр 'id' из query-строки
+    def list(self, request):
+        employers = OrderedDictQueryExecutor.fetchall(get_employers)
+        response_data = {"data": employers, "message": "Все работодатели получены успешно"}
+        return Response(response_data, status=status.HTTP_200_OK)
 
-        if not employer_id:
-            return Response(
-                {"message": "Идентификатор работодателя не указан"},
-                status=status.HTTP_400_BAD_REQUEST
+    @swagger_auto_schema(
+        operation_description="Создание одного или нескольких работодателей",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_ARRAY,
+            items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'company_name': openapi.Schema(type=openapi.TYPE_STRING, description='Название компании'),
+                    'description': openapi.Schema(type=openapi.TYPE_STRING, description='Описание компании'),
+                    'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, description='Контактный email компании'),
+                    'rating': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_DECIMAL, description='Рейтинг компании от 0 до 5'),
+                },
+                required=['company_name', 'description', 'email', 'rating'],
+                example={
+                    "company_name": "Tech Innovations Inc.",
+                    "description": "Компания, специализирующаяся на разработке инновационных технологий в области искусственного интеллекта и машинного обучения.",
+                    "email": "info@techinnovations.com",
+                    "rating": 4.75
+                }
             )
-
-        try:
-            employer = Employer.objects.get(id=employer_id)  # Ищем работодателя по ID
-        except Employer.DoesNotExist:
-            return Response(
-                {"message": "Работодатель с указанным ID не найден"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        employer.delete()  # Удаляем работодателя из базы данных
-
-        return Response(
-            {"message": "Работодатель успешно удален"},
-            status=status.HTTP_204_NO_CONTENT
+        ),
+        responses={201: "Работодатель(и) успешно созданы", 400: "Ошибка валидации данных"},
+    )
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        existing = set(
+            Employer.objects.filter(
+                company_name__in=[item.get('company_name') for item in data],
+                email__in=[item.get('email') for item in data]
+            ).values_list('company_name', 'email')
         )
+        to_create = [item for item in data if (item.get('company_name'), item.get('email')) not in existing]
+        skipped = [item for item in data if (item.get('company_name'), item.get('email')) in existing]
+        if not to_create:
+            return Response({
+                "added": [],
+                "skipped": skipped,
+                "message": "Все объекты уже существуют в базе, ничего не добавлено"
+            }, status=status.HTTP_200_OK)
+        serializer = EmployerSerializer(data=to_create, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "added": serializer.data,
+                "skipped": skipped,
+                "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+            }, status=status.HTTP_201_CREATED)
+        errors = serializer.errors
+        if isinstance(errors, list):
+            errors = {str(i): err for i, err in enumerate(errors)}
+        return Response(parse_errors_to_dict(errors), status=status.HTTP_400_BAD_REQUEST)
 
-# Представление данных для обновления (PUT) работодателей
-class EmployerPutView(BaseAPIView):
+    @swagger_auto_schema(
+        operation_description="Получение информации о работодателе по id",
+        responses={200: "Информация о работодателе", 404: "Работодатель не найден"}
+    )
+    def retrieve(self, request, pk=None):
+        employer = OrderedDictQueryExecutor.fetchall(get_employers, employer_id=pk)
+        if not employer:
+            return Response({"message": "Работодатель с указанным ID не найден"}, status=status.HTTP_404_NOT_FOUND)
+        response_data = {"data": employer, "message": "Компетенция получена успешно"}
+        return Response(response_data, status=status.HTTP_200_OK)
+
     @swagger_auto_schema(
         operation_description="Обновление информации о работодателе",
         request_body=EmployerSerializer,
-        manual_parameters=[
-            openapi.Parameter(
-                'id',
-                openapi.IN_QUERY,
-                type=openapi.TYPE_INTEGER,
-                required=True,
-                description="Идентификатор работодателя"
-            )
-        ],
-        responses={
-            200: "Информация о работодателе обновлена успешно",
-            400: "Ошибка валидации данных",
-            404: "Работодатель не найден"
-        }
+        responses={200: "Информация о работодателе обновлена успешно", 400: "Ошибка валидации данных", 404: "Работодатель не найден"}
     )
-    def put(self, request):
-        """
-        Обновление информации о работодателе (обработка PUT-запроса).
-        """
-        employer_id = request.query_params.get('id')
-        if not employer_id:
-            return Response(
-                {"message": "Идентификатор работодателя не указан"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+    def update(self, request, pk=None):
         try:
-            employer = Employer.objects.get(id=employer_id)
+            employer = Employer.objects.get(id=pk)
         except Employer.DoesNotExist:
-            return Response(
-                {"message": "Работодатель с указанным ID не найден"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
+            return Response({"message": "Работодатель с указанным ID не найден"}, status=status.HTTP_404_NOT_FOUND)
         serializer = EmployerSerializer(employer, data=request.data, partial=False)
         if not serializer.is_valid():
-            return Response(
-                {"message": "Ошибка валидации данных", "errors": serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Обновляем данные работодателя
+            return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
-
-        # Получаем обновленные данные
-        updated_employer = OrderedDictQueryExecutor.fetchall(
-            get_employers, employer_id=employer_id
-        )
-
-        response_data = {
-            "data": updated_employer,
-            "message": "Информация о работодателе обновлена успешно"
-        }
-
+        updated_employer = OrderedDictQueryExecutor.fetchall(get_employers, employer_id=pk)
+        response_data = {"data": updated_employer, "message": "Информация о работодателе обновлена успешно"}
         return Response(response_data, status=status.HTTP_200_OK)
 
-# Представление данных для получения (GET) работодателей
-class EmployerGetView(BaseAPIView):
     @swagger_auto_schema(
-        operation_description="Получение информации о работодателях. Если указан параметр 'id', возвращается конкретный работодатель. Если параметр 'id' не указан, возвращаются все работодатели",
-        manual_parameters=[
-            openapi.Parameter(
-                'id', # Имя параметра
-                openapi.IN_QUERY, # Параметр передается в query-строке
-                type = openapi.TYPE_INTEGER, # Тип параметра (целочисленный)
-                required=False,
-                description="Идентификатор работодателя (опционально)", # Описание параметра
-            )
-        ],
-        responses={
-            200: "Информация о работодателях", # Успешный ответ
-            400: "Ошибка" # Ошибка
-        }
+        operation_description="Удаление работодателя по идентификатору",
+        responses={204: "Работодатель успешно удален", 404: "Работодатель не найден"}
     )
-    def get(self, request):
-        """
-        Обработка GET-запроса для получения информации о работодателях
-        В случае передачи параметра 'id', возвращает данные о конкретном работодателе.
-        Если параметр 'id' не передан - возвращаются все данные о работодателях.
-        """
-        employer_id = request.query_params.get('id') # Получаем параметр 'id' из query-строки
-
-        if employer_id:
-            # Если передан 'id', получаем данные о конкретном работодателе
-            employer = OrderedDictQueryExecutor.fetchall(
-                get_employers, employer_id = employer_id
-            )
-            if not employer:
-                # Если работодатель не обнаружена - возвращаем ошибку 404
-                return Response(
-                    {"message": "Работодатель с указанным ID не найден"},
-                    status = status.HTTP_404_NOT_FOUND
-                )
-            # Формируем успешный ответ с данными о работодателе
-            response_data = {
-                "data": employer,
-                "message": "Компетенция получена успешно"
-            }
-        else:
-            # Если 'id' не передан, получаем данные обо всех технологиях
-            employers = OrderedDictQueryExecutor.fetchall(get_employers)
-            # Формируем успешный ответ с данными обо всех технологиях
-            response_data = {
-                "data": employers,
-                "message": "Все работодатели получены успешно"
-            }
-
-        # Возвращаем ответ с данными и статусом 200
-        return Response(response_data, status=status.HTTP_200_OK)
-    
-# Представление данных для создания (POST) работодателей
-class EmployerSendView(APIView):
-    @swagger_auto_schema(
-        operation_description="Создание нового работодателя",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,  # Тип тела запроса (объект JSON)
-            properties={
-                'company_name': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Название компании',  # Описание поля
-                ),
-                'description': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    description='Описание компании',  # Описание поля
-                ),
-                'email': openapi.Schema(
-                    type=openapi.TYPE_STRING,  # Тип поля (строка)
-                    format=openapi.FORMAT_EMAIL,  # Указываем формат email
-                    description='Контактный email компании',  # Описание поля
-                ),
-                'rating': openapi.Schema(
-                    type=openapi.TYPE_NUMBER,  # Тип поля (число)
-                    format=openapi.FORMAT_DECIMAL,  # Указываем формат числа с плавающей точкой
-                    description='Рейтинг компании от 0 до 5',  # Описание поля
-                ),
-            },
-            required=['company_name', 'description', 'email', 'rating'],  # Обязательные поля
-            example={
-                "company_name": "Tech Innovations Inc.",
-                "description": "Компания, специализирующаяся на разработке инновационных технологий в области искусственного интеллекта и машинного обучения.",
-                "email": "info@techinnovations.com",
-                "rating": 4.75
-            }
-        ),
-        responses={
-            201: "Работодатель успешно создан",  # Успешный ответ
-            400: "Произошла ошибка"  # Ошибка
-        },
-    )
-    def post(self, request):
-        """
-        Обрабатывает POST-запрос для создания нового работодателя.
-        Проверяет валидность данных и сохраняет работодателя в базе данных.
-        """
-        serializer = EmployerSerializer(data=request.data)  # Создаем сериализатор с данными из запроса
-
-        if serializer.is_valid():
-            # Если данные валидны, сохраняем работодателя
-            serializer.save()
-            # Возвращаем успешный ответ
-            return Response(
-                {"message": "Работодатель успешно создан"},
-                status=status.HTTP_201_CREATED
-            )
-
-        # Если данные не валидны, возвращаем ошибку 400
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
+    def destroy(self, request, pk=None):
+        try:
+            employer = Employer.objects.get(id=pk)
+        except Employer.DoesNotExist:
+            return Response({"message": "Работодатель с указанным ID не найден"}, status=status.HTTP_404_NOT_FOUND)
+        employer.delete()
+        return Response({"message": "Работодатель успешно удален"}, status=status.HTTP_204_NO_CONTENT)
 
 class DatabaseTablesView(APIView):
     CACHE_TIMEOUT = 60 * 5  # 5 минут
