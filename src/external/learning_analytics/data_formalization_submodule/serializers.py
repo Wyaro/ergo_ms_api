@@ -19,23 +19,23 @@ from src.external.learning_analytics.data_formalization_submodule.models import 
 class SpecialitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Speciality
-        fields = ['code', 'name', 'specialization', 'department', 'faculty']
+        fields = ['id', 'code', 'name', 'specialization', 'department', 'faculty']
 
 class CurriculumSerializer(serializers.ModelSerializer):
     class Meta:
         model = Curriculum
-        fields = ['speciality', 'education_duration', 'year_of_admission', 'is_active']
+        fields = ['id', 'speciality', 'education_duration', 'year_of_admission', 'is_active']
 
 class TechnologySerializer(serializers.ModelSerializer):
     class Meta:
         model = Technology
-        fields = ['name', 'description', 'popularity', 'rating']
+        fields = ['id', 'name', 'description', 'popularity', 'rating']
 
 class CompetencySerializer(serializers.ModelSerializer):
     class Meta:
         model = Competency
         fields = [
-            'code', 'name', 'description',
+            'id', 'code', 'name', 'description',
             'know_level', 'can_level', 'master_level',
             'blooms_level', 'blooms_verbs',
             'complexity', 'demand'
@@ -44,13 +44,13 @@ class CompetencySerializer(serializers.ModelSerializer):
 class BaseDisciplineSerializer(serializers.ModelSerializer):
     class Meta:
         model = BaseDiscipline
-        fields = ['code', 'name', 'description']
+        fields = ['id', 'code', 'name', 'description']
 
 class DisciplineSerializer(serializers.ModelSerializer):
     class Meta:
         model = Discipline
         fields = [
-            'curriculum', 'base_discipline', 
+            'id', 'curriculum', 'base_discipline', 
             'code', 'name', 'semesters',
             'contact_work_hours', 'independent_work_hours', 'control_work_hours',
             'technologies', 'competencies'
@@ -60,7 +60,7 @@ class VacancySerializer(serializers.ModelSerializer):
     class Meta:
         model = Vacancy
         fields = [
-            'employer', 'title', 'description',
+            'id', 'employer', 'title', 'description',
             'requirements', 'responsibilities',
             'created_at', 'updated_at',
             'salary_min', 'salary_max',
@@ -73,15 +73,15 @@ class VacancySerializer(serializers.ModelSerializer):
 class ACMSerializer(serializers.ModelSerializer):
     class Meta:
         model = ACM
-        fields = ['curriculum', 'discipline_list', 'technology_stack']
+        fields = ['id', 'curriculum', 'discipline_list', 'technology_stack']
 
 class VCMSerializer(serializers.ModelSerializer):
     class Meta:
         model = VCM
-        fields = ['vacancy_name', 'vacancy', 'competencies_stack', 'technology_stack', 'description']
+        fields = ['id', 'vacancy_name', 'vacancy', 'competencies_stack', 'technology_stack', 'description']
 
 class UCMSerializer(serializers.ModelSerializer):
     class Meta:
         model = UCM 
-        fields = ['user_id', 'competencies_stack', 'technology_stack']
+        fields = ['id', 'user_id', 'competencies_stack', 'technology_stack']
 

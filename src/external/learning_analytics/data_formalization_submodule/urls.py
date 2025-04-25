@@ -10,6 +10,7 @@ from src.external.learning_analytics.data_formalization_submodule.views import (
     ACMView,
     VCMView,
     UCMView,
+    LoadSampleData
 )
 
 urlpatterns = [
@@ -42,4 +43,6 @@ urlpatterns = [
 
     path('ucms/', UCMView.as_view({'get': 'list', 'post': 'create'}), name='ucms'),
     path('ucms/<int:pk>/', UCMView.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name='ucm-detail'),
+
+    path('technologies/loadsampledata/', LoadSampleData.as_view(), name='load-sample-technologies'),
 ]

@@ -67,6 +67,10 @@ from src.external.learning_analytics.data_formalization_submodule.scripts import
     get_userCompetenceMatrix
 )
 
+import json
+import os
+from django.conf import settings
+
 #######################
 # Specialty Views 
 #######################
@@ -659,6 +663,21 @@ class TechnologyView(viewsets.ViewSet):
         obj = get_object_or_404(Technology, pk=pk)
         obj.delete()
         return Response({"message": "Технология успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+
+class LoadSampleData(APIView):
+    def post(self, request):
+        try:
+            json_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_technologies.json')
+            with open(json_path, encoding='utf-8') as f:
+                data = json.load(f)
+            created = []
+            for item in data:
+                obj, is_created = Technology.objects.get_or_create(name=item['name'], defaults=item)
+                if is_created:
+                    created.append(obj.name)
+            return Response({'message': f'Загружено {len(created)} технологий', 'added': created}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 #######################
 # Competency Views
