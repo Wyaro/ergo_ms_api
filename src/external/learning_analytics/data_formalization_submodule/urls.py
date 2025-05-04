@@ -10,7 +10,22 @@ from src.external.learning_analytics.data_formalization_submodule.views import (
     ACMView,
     VCMView,
     UCMView,
-    LoadSampleData
+    LoadSampleTechnologyData,
+    LoadSampleSpecialityData,
+    LoadSampleCurriculumData,
+    LoadSampleCompetencyData,
+    LoadSampleBaseDisciplineData,
+    LoadSampleDisciplineData,
+    LoadSampleVacancyData,
+    LoadSampleACMData,
+    LoadSampleVCMData,
+    LoadSampleUCMData,
+    DisciplineTechnologyRelationView,
+    DisciplineCompetencyRelationView,
+    VacancyTechnologyRelationView,
+    VacancyCompetencyRelationView,
+    VCMTechnologyRelationView,
+    VCMCompetencyRelationView,
 )
 
 urlpatterns = [
@@ -44,5 +59,22 @@ urlpatterns = [
     path('ucms/', UCMView.as_view({'get': 'list', 'post': 'create'}), name='ucms'),
     path('ucms/<int:pk>/', UCMView.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name='ucm-detail'),
 
-    path('technologies/loadsampledata/', LoadSampleData.as_view(), name='load-sample-technologies'),
+    path('technologies/loadsampledata/', LoadSampleTechnologyData.as_view(), name='load-sample-technologies'),
+    path('specialities/loadsampledata/', LoadSampleSpecialityData.as_view(), name='load-sample-specialities'),
+    path('curriculums/loadsampledata/', LoadSampleCurriculumData.as_view(), name='load-sample-curriculums'),
+    path('competencies/loadsampledata/', LoadSampleCompetencyData.as_view(), name='load-sample-competencies'),
+    path('base_disciplines/loadsampledata/', LoadSampleBaseDisciplineData.as_view(), name='load-sample-base-disciplines'),
+    path('disciplines/loadsampledata/', LoadSampleDisciplineData.as_view(), name='load-sample-disciplines'),
+    path('vacancies/loadsampledata/', LoadSampleVacancyData.as_view(), name='load-sample-vacancies'),
+    path('acms/loadsampledata/', LoadSampleACMData.as_view(), name='load-sample-acms'),
+    path('vcms/loadsampledata/', LoadSampleVCMData.as_view(), name='load-sample-vcms'),
+    path('ucms/loadsampledata/', LoadSampleUCMData.as_view(), name='load-sample-ucms'),
+
+    # Relations endpoints
+    path('relations/discipline-technology/', DisciplineTechnologyRelationView.as_view(), name='discipline-technology-relations'),
+    path('relations/discipline-competency/', DisciplineCompetencyRelationView.as_view(), name='discipline-competency-relations'),
+    path('relations/vacancy-technology/', VacancyTechnologyRelationView.as_view(), name='vacancy-technology-relations'),
+    path('relations/vacancy-competency/', VacancyCompetencyRelationView.as_view(), name='vacancy-competency-relations'),
+    path('relations/vcm-technology/', VCMTechnologyRelationView.as_view(), name='vcm-technology-relations'),
+    path('relations/vcm-competency/', VCMCompetencyRelationView.as_view(), name='vcm-competency-relations'),
 ]

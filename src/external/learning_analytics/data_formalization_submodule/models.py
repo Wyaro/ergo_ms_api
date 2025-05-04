@@ -216,7 +216,7 @@ class Discipline(models.Model):
     independent_work_hours = models.PositiveSmallIntegerField(verbose_name="Самостоятельная работа, ч")
     control_work_hours = models.PositiveSmallIntegerField(verbose_name="Контроль, ч")
     technologies = models.ManyToManyField(Technology, verbose_name="Технологии", blank=True, related_name="disciplines", db_table="la_df_disc_tech_rel")
-    competencies = models.ManyToManyField(Competency, verbose_name="Компетенции", blank=True, related_name="disciplines", db_table="la_df_submodule_disc_comp_rel")
+    competencies = models.ManyToManyField(Competency, verbose_name="Компетенции", blank=True, related_name="disciplines", db_table="la_df_disc_comp_rel")
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -317,27 +317,36 @@ class VCM(models.Model):
     Модель CompetencyProfileOfVacancy - модель, представляющая компетентностный профиль вакансии.
 
     Attributes:
-        vacancy_name (CharField): Название вакансии. Максимальная длина - 255 символов.
-        vacancy (ForeignKey): Внешний ключ на модель Vacancy, может быть пустым.
-        competencies_stack (JSONField): Перечень требующихся компетенций.
-        technology_stack (JSONField): Стек требуемых технологий.
-        description (TextField): Описание вакансии. Максимальная длина - 400 символов.
+        vacancy (ForeignKey): Внешний ключ на модель Vacancy.
+        technologies (ManyToManyField): Связь с моделью Technology.
+        competencies (ManyToManyField): Связь с моделью Competency.
+        description (TextField): Описание профиля компетенций. Максимальная длина - 400 символов.
     """
 
-    vacancy_name = models.CharField(max_length=255, verbose_name="Название вакансии")
     vacancy = models.ForeignKey(
         Vacancy, 
         on_delete=models.CASCADE,
-        verbose_name="ID вакансии",
-        blank = True,
-        null = True)
-    competencies_stack = models.JSONField(verbose_name="Перечень требующихся компетенций")
-    technology_stack = models.JSONField(verbose_name="Стек требуемых технологий")
-    description = models.TextField(max_length=400, verbose_name="Описание вакансии")
+        verbose_name="Вакансия",
+        related_name="vcm_profiles")
+    technologies = models.ManyToManyField(
+        Technology, 
+        verbose_name="Технологии", 
+        blank=True, 
+        related_name="vcm_profiles", 
+        db_table="la_df_vcm_tech_rel"
+    )
+    competencies = models.ManyToManyField(
+        Competency, 
+        verbose_name="Компетенции", 
+        blank=True, 
+        related_name="vcm_profiles", 
+        db_table="la_df_vcm_comp_rel"
+    )
+    description = models.TextField(max_length=400, verbose_name="Описание профиля компетенций", blank=True)
 
     def __str__(self):
-        return f"Компетентностный профиль вакансии {self.vacancy_name}"
-    
+        return f"Профиль компетенций для вакансии: {self.vacancy}"
+
     class Meta:
         verbose_name = "Компетентностный профиль вакансии"
         verbose_name_plural = "Компетентностные профили вакансии"

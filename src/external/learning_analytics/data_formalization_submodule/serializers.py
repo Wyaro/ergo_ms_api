@@ -78,7 +78,7 @@ class ACMSerializer(serializers.ModelSerializer):
 class VCMSerializer(serializers.ModelSerializer):
     class Meta:
         model = VCM
-        fields = ['id', 'vacancy_name', 'vacancy', 'competencies_stack', 'technology_stack', 'description']
+        fields = ['id', 'vacancy', 'technologies', 'competencies', 'description']
 
 class UCMSerializer(serializers.ModelSerializer):
     class Meta:

@@ -95,3 +95,95 @@ def get_userCompetenceMatrix(matrix_id: int = None):
             (matrix_id,)
         )
     return ("SELECT * FROM la_df_user_competency_matrix", ())
+
+def get_discipline_technology_relations(discipline_id: int = None, technology_id: int = None):
+    """Получение связей между дисциплинами и технологиями"""
+    base_query = """
+        SELECT d.id as discipline_id, d.name as discipline_name,
+               t.id as technology_id, t.name as technology_name
+        FROM la_df_discipline d
+        JOIN la_df_disc_tech_rel dtr ON d.id = dtr.discipline_id
+        JOIN la_df_technology t ON t.id = dtr.technology_id
+    """
+    if discipline_id is not None:
+        return (f"{base_query} WHERE d.id = %s", (discipline_id,))
+    elif technology_id is not None:
+        return (f"{base_query} WHERE t.id = %s", (technology_id,))
+    return (base_query, ())
+
+def get_discipline_competency_relations(discipline_id: int = None, competency_id: int = None):
+    """Получение связей между дисциплинами и компетенциями"""
+    base_query = """
+        SELECT d.id as discipline_id, d.name as discipline_name,
+               c.id as competency_id, c.name as competency_name
+        FROM la_df_discipline d
+        JOIN la_df_disc_comp_rel dcr ON d.id = dcr.discipline_id
+        JOIN la_df_competency c ON c.id = dcr.competency_id
+    """
+    if discipline_id is not None:
+        return (f"{base_query} WHERE d.id = %s", (discipline_id,))
+    elif competency_id is not None:
+        return (f"{base_query} WHERE c.id = %s", (competency_id,))
+    return (base_query, ())
+
+def get_vacancy_technology_relations(vacancy_id: int = None, technology_id: int = None):
+    """Получение связей между вакансиями и технологиями"""
+    base_query = """
+        SELECT v.id as vacancy_id, v.title as vacancy_title,
+               t.id as technology_id, t.name as technology_name
+        FROM la_df_vacancy v
+        JOIN la_df_vacancy_tech_rel vtr ON v.id = vtr.vacancy_id
+        JOIN la_df_technology t ON t.id = vtr.technology_id
+    """
+    if vacancy_id is not None:
+        return (f"{base_query} WHERE v.id = %s", (vacancy_id,))
+    elif technology_id is not None:
+        return (f"{base_query} WHERE t.id = %s", (technology_id,))
+    return (base_query, ())
+
+def get_vacancy_competency_relations(vacancy_id: int = None, competency_id: int = None):
+    """Получение связей между вакансиями и компетенциями"""
+    base_query = """
+        SELECT v.id as vacancy_id, v.title as vacancy_title,
+               c.id as competency_id, c.name as competency_name
+        FROM la_df_vacancy v
+        JOIN la_df_vacancy_comp_rel vcr ON v.id = vcr.vacancy_id
+        JOIN la_df_competency c ON c.id = vcr.competency_id
+    """
+    if vacancy_id is not None:
+        return (f"{base_query} WHERE v.id = %s", (vacancy_id,))
+    elif competency_id is not None:
+        return (f"{base_query} WHERE c.id = %s", (competency_id,))
+    return (base_query, ())
+
+def get_vcm_technology_relations(vcm_id: int = None, technology_id: int = None):
+    """Получение связей между профилями вакансий и технологиями"""
+    base_query = """
+        SELECT vcm.id as vcm_id, v.title as vacancy_title,
+               t.id as technology_id, t.name as technology_name
+        FROM la_df_competency_profile_of_vacancy vcm
+        JOIN la_df_vacancy v ON vcm.vacancy_id = v.id
+        JOIN la_df_vcm_tech_rel vcmtr ON vcm.id = vcmtr.vcm_id
+        JOIN la_df_technology t ON t.id = vcmtr.technology_id
+    """
+    if vcm_id is not None:
+        return (f"{base_query} WHERE vcm.id = %s", (vcm_id,))
+    elif technology_id is not None:
+        return (f"{base_query} WHERE t.id = %s", (technology_id,))
+    return (base_query, ())
+
+def get_vcm_competency_relations(vcm_id: int = None, competency_id: int = None):
+    """Получение связей между профилями вакансий и компетенциями"""
+    base_query = """
+        SELECT vcm.id as vcm_id, v.title as vacancy_title,
+               c.id as competency_id, c.name as competency_name
+        FROM la_df_competency_profile_of_vacancy vcm
+        JOIN la_df_vacancy v ON vcm.vacancy_id = v.id
+        JOIN la_df_vcm_comp_rel vcmcr ON vcm.id = vcmcr.vcm_id
+        JOIN la_df_competency c ON c.id = vcmcr.competency_id
+    """
+    if vcm_id is not None:
+        return (f"{base_query} WHERE vcm.id = %s", (vcm_id,))
+    elif competency_id is not None:
+        return (f"{base_query} WHERE c.id = %s", (competency_id,))
+    return (base_query, ())

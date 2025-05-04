@@ -37,8 +37,13 @@ from src.external.learning_analytics.data_formalization_submodule.models import(
     Vacancy, 
     ACM,
     VCM,
-    UCM
+    UCM,
+
 )
+
+from src.external.learning_analytics.models import(
+    Employer,
+)    
 
 from src.external.learning_analytics.data_formalization_submodule.serializers import(
     SpecialitySerializer,
@@ -64,12 +69,19 @@ from src.external.learning_analytics.data_formalization_submodule.scripts import
     get_vacancies,
     get_academicCompetenceMatrix,
     get_competencyProfileOfVacancy,
-    get_userCompetenceMatrix
+    get_userCompetenceMatrix,
+    get_discipline_technology_relations,
+    get_discipline_competency_relations,
+    get_vacancy_technology_relations,
+    get_vacancy_competency_relations,
+    get_vcm_technology_relations,
+    get_vcm_competency_relations
 )
 
 import json
 import os
 from django.conf import settings
+from django.db import connection
 
 #######################
 # Specialty Views 
@@ -664,7 +676,7 @@ class TechnologyView(viewsets.ViewSet):
         obj.delete()
         return Response({"message": "Технология успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
 
-class LoadSampleData(APIView):
+class LoadSampleTechnologyData(APIView):
     def post(self, request):
         try:
             json_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_technologies.json')
@@ -840,6 +852,97 @@ class CompetencyView(viewsets.ViewSet):
         obj = get_object_or_404(Competency, pk=pk)
         obj.delete()
         return Response({"message": "Компетенция успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+
+class LoadSampleCompetencyData(APIView):
+    def post(self, request):
+        try:
+            with open('api/src/external/learning_analytics/data/sample_competencies.json', 'r', encoding='utf-8') as file:
+                data = json.load(file)
+        except FileNotFoundError:
+            return Response({"error": "Файл с данными не найден"}, status=status.HTTP_404_NOT_FOUND)
+        except json.JSONDecodeError:
+            return Response({"error": "Ошибка при чтении JSON файла"}, status=status.HTTP_400_BAD_REQUEST)
+
+        created = []
+        skipped = []
+        errors = []
+
+        for item in data:
+            try:
+                # Проверка обязательных полей
+                required_fields = ['code', 'name', 'description', 'know_level', 'can_level', 
+                                 'master_level', 'blooms_verbs', 'blooms_level', 'complexity', 'demand']
+                for field in required_fields:
+                    if field not in item:
+                        errors.append(f"Отсутствует обязательное поле {field} в записи {item.get('code', 'unknown')}")
+                        continue
+
+                # Проверка типов данных
+                if not isinstance(item['code'], str):
+                    errors.append(f"Поле code должно быть строкой в записи {item['code']}")
+                    continue
+                if not isinstance(item['name'], str):
+                    errors.append(f"Поле name должно быть строкой в записи {item['code']}")
+                    continue
+                if not isinstance(item['description'], str):
+                    errors.append(f"Поле description должно быть строкой в записи {item['code']}")
+                    continue
+                if not isinstance(item['know_level'], str):
+                    errors.append(f"Поле know_level должно быть строкой в записи {item['code']}")
+                    continue
+                if not isinstance(item['can_level'], str):
+                    errors.append(f"Поле can_level должно быть строкой в записи {item['code']}")
+                    continue
+                if not isinstance(item['master_level'], str):
+                    errors.append(f"Поле master_level должно быть строкой в записи {item['code']}")
+                    continue
+                if not isinstance(item['blooms_verbs'], str):
+                    errors.append(f"Поле blooms_verbs должно быть строкой в записи {item['code']}")
+                    continue
+                if item['blooms_level'] not in [choice[0] for choice in Competency.BLOOMS_LEVELS]:
+                    errors.append(f"Недопустимое значение blooms_level в записи {item['code']}")
+                    continue
+                if not isinstance(item['complexity'], int) or not 1 <= item['complexity'] <= 10:
+                    errors.append(f"Поле complexity должно быть целым числом от 1 до 10 в записи {item['code']}")
+                    continue
+                if not isinstance(item['demand'], int) or not 1 <= item['demand'] <= 10:
+                    errors.append(f"Поле demand должно быть целым числом от 1 до 10 в записи {item['code']}")
+                    continue
+
+                # Создание или обновление компетенции
+                competency, created_flag = Competency.objects.get_or_create(
+                    code=item['code'],
+                    defaults={
+                        'name': item['name'],
+                        'description': item['description'],
+                        'know_level': item['know_level'],
+                        'can_level': item['can_level'],
+                        'master_level': item['master_level'],
+                        'blooms_verbs': item['blooms_verbs'],
+                        'blooms_level': item['blooms_level'],
+                        'complexity': item['complexity'],
+                        'demand': item['demand']
+                    }
+                )
+
+                if created_flag:
+                    created.append(competency.code)
+                else:
+                    skipped.append(competency.code)
+
+            except Exception as e:
+                errors.append(f"Ошибка при обработке записи {item.get('code', 'unknown')}: {str(e)}")
+
+        return Response({
+            "created": len(created),
+            "skipped": len(skipped),
+            "errors": len(errors),
+            "details": {
+                "created_items": created,
+                "skipped_items": skipped,
+                "error_messages": errors
+            }
+        }, status=status.HTTP_200_OK)
 
 #######################
 # BaseDiscipline Views
@@ -1495,6 +1598,48 @@ class ACMView(viewsets.ViewSet):
         obj.delete()
         return Response({"message": "Матрица успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
 
+class LoadSampleACMData(APIView):
+    def post(self, request):
+        try:
+            import json
+            import os
+            from django.conf import settings
+            from src.external.learning_analytics.data_formalization_submodule.models import Curriculum, ACM
+
+            # Путь к файлу
+            json_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_acms.json')
+
+            # Загружаем все учебные планы из базы по id
+            curriculums_by_id = {c.id: c for c in Curriculum.objects.all()}
+
+            # Загружаем данные из файла
+            with open(json_path, encoding='utf-8') as f:
+                acms_data = json.load(f)
+
+            created = []
+            skipped = []
+            for item in acms_data:
+                curriculum_id = item['curriculum']
+                curriculum_obj = curriculums_by_id.get(curriculum_id)
+                if not curriculum_obj:
+                    skipped.append(item)
+                    continue
+
+                obj, is_created = ACM.objects.get_or_create(
+                    curriculum=curriculum_obj,
+                    defaults={
+                        'discipline_list': item['discipline_list'],
+                        'technology_stack': item['technology_stack']
+                    }
+                )
+                if is_created:
+                    created.append(obj.id)
+                else:
+                    skipped.append(item)
+            return Response({'message': f'Загружено {len(created)} ACM', 'added': created, 'skipped': skipped}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 #######################
 # VCM Views
 #######################
@@ -1545,7 +1690,7 @@ class VCMSendView(BaseAPIView):
     def post(self, request):
         """
         Обработка POST-запроса для создания профилей компетенций вакансии.
-        Добавляет только уникальные объекты (по vacancy_name), дубликаты пропускает.
+        Добавляет только уникальные объекты (по vacancy_id), дубликаты пропускает.
         Возвращает списки добавленных и пропущенных.
         """
         try:
@@ -1553,27 +1698,35 @@ class VCMSendView(BaseAPIView):
             is_many = isinstance(data, list)
             if not is_many:
                 data = [data]
-            names = [item.get('vacancy_name') for item in data]
-            existing = set(VCM.objects.filter(vacancy_name__in=names).values_list('vacancy_name', flat=True))
-            to_create = [item for item in data if item.get('vacancy_name') not in existing]
-            skipped = [item for item in data if item.get('vacancy_name') in existing]
+            
+            # Получаем список ID вакансий из запроса
+            vacancy_ids = [item.get('vacancy') for item in data]
+            
+            # Проверяем существующие VCM по ID вакансий
+            existing = set(VCM.objects.filter(vacancy_id__in=vacancy_ids).values_list('vacancy_id', flat=True))
+            
+            # Разделяем данные на новые и существующие
+            to_create = [item for item in data if item.get('vacancy') not in existing]
+            skipped = [item for item in data if item.get('vacancy') in existing]
+            
             if not to_create:
                 return Response({
                     "added": [],
                     "skipped": skipped,
                     "message": "Все объекты уже существуют в базе, ничего не добавлено"
                 }, status=status.HTTP_200_OK)
+            
             serializer = VCMSerializer(data=to_create, many=True)
             if serializer.is_valid():
                 serializer.save()
                 return Response({
                     "added": serializer.data,
                     "skipped": skipped,
-                    "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"
+                    "message": f"Успешно добавлено {len(serializer.data)} объектов"
                 }, status=status.HTTP_201_CREATED)
-            return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({"message": f"Ошибка при создании профиля: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class VCMPutView(BaseAPIView):
     """
@@ -1624,17 +1777,17 @@ class VCMView(viewsets.ViewSet):
         is_many = isinstance(data, list)
         if not is_many:
             data = [data]
-        names = [item.get('vacancy_name') for item in data]
-        existing = set(VCM.objects.filter(vacancy_name__in=names).values_list('vacancy_name', flat=True))
-        to_create = [item for item in data if item.get('vacancy_name') not in existing]
-        skipped = [item for item in data if item.get('vacancy_name') in existing]
+        vacancy_ids = [item.get('vacancy') for item in data]
+        existing = set(VCM.objects.filter(vacancy_id__in=vacancy_ids).values_list('vacancy_id', flat=True))
+        to_create = [item for item in data if item.get('vacancy') not in existing]
+        skipped = [item for item in data if item.get('vacancy') in existing]
         if not to_create:
             return Response({"added": [], "skipped": skipped, "message": "Все объекты уже существуют в базе, ничего не добавлено"}, status=status.HTTP_200_OK)
         serializer = VCMSerializer(data=to_create, many=True)
         if serializer.is_valid():
             serializer.save()
             return Response({"added": serializer.data, "skipped": skipped, "message": f"Добавлено: {len(serializer.data)}, пропущено (дубликаты): {len(skipped)}"}, status=status.HTTP_201_CREATED)
-        return Response(parse_errors_to_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(responses={200: VCMSerializer(), 404: 'Not found'})
     def retrieve(self, request, pk=None):
@@ -1656,6 +1809,48 @@ class VCMView(viewsets.ViewSet):
         obj = get_object_or_404(VCM, pk=pk)
         obj.delete()
         return Response({"message": "Профиль успешно удален"}, status=status.HTTP_204_NO_CONTENT)
+
+class LoadSampleVCMData(APIView):
+    def post(self, request):
+        try:
+            json_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_vcms.json')
+            with open(json_path, encoding='utf-8') as f:
+                data = json.load(f)
+            created = []
+            for item in data:
+                # Проверяем существование вакансии
+                vacancy_id = item.get('vacancy')
+                if not vacancy_id:
+                    continue
+                    
+                try:
+                    vacancy = Vacancy.objects.get(id=vacancy_id)
+                except Vacancy.DoesNotExist:
+                    continue
+                
+                # Создаем или получаем существующий VCM
+                vcm, is_created = VCM.objects.get_or_create(
+                    vacancy=vacancy,
+                    defaults={
+                        'description': item.get('description', '')
+                    }
+                )
+                
+                # Добавляем технологии и компетенции
+                if 'technologies' in item:
+                    vcm.technologies.set(item['technologies'])
+                if 'competencies' in item:
+                    vcm.competencies.set(item['competencies'])
+                
+                if is_created:
+                    created.append(vacancy.title)
+            
+            return Response({
+                'message': f'Загружено {len(created)} VCM',
+                'added': created
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 #######################
 # UCM Views
@@ -1818,6 +2013,577 @@ class UCMView(viewsets.ViewSet):
         obj = get_object_or_404(UCM, pk=pk)
         obj.delete()
         return Response({"message": "Матрица успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+
+class LoadSampleSpecialityData(APIView):
+    def post(self, request):
+        try:
+            json_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_specialities.json')
+            with open(json_path, encoding='utf-8') as f:
+                data = json.load(f)
+            created = []
+            for item in data:
+                obj, is_created = Speciality.objects.get_or_create(code=item['code'], defaults=item)
+                if is_created:
+                    created.append(obj.code)
+            return Response({'message': f'Загружено {len(created)} специальностей', 'added': created}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class LoadSampleCurriculumData(APIView):
+    def post(self, request):
+        try:
+            import json
+            import os
+            from django.conf import settings
+            from src.external.learning_analytics.data_formalization_submodule.models import Speciality, Curriculum
+
+            # Пути к файлам
+            specialities_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_specialities.json')
+            curriculums_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_curriculums.json')
+
+            # Загружаем специальности из базы (по коду)
+            specialities_by_code = {s.code: s for s in Speciality.objects.all()}
+
+            # Загружаем данные из файлов
+            with open(specialities_path, encoding='utf-8') as f:
+                specialities_data = json.load(f)
+            with open(curriculums_path, encoding='utf-8') as f:
+                curriculums_data = json.load(f)
+
+            created = []
+            skipped = []
+            for item in curriculums_data:
+                # Получаем индекс специальности (id из json) и находим её code
+                speciality_index = item['speciality'] - 1  # индексация с 0
+                if speciality_index < 0 or speciality_index >= len(specialities_data):
+                    skipped.append(item)
+                    continue
+                speciality_code = specialities_data[speciality_index]['code']
+                speciality_obj = specialities_by_code.get(speciality_code)
+                if not speciality_obj:
+                    skipped.append(item)
+                    continue
+
+                obj, is_created = Curriculum.objects.get_or_create(
+                    speciality=speciality_obj,
+                    education_duration=item['education_duration'],
+                    year_of_admission=item['year_of_admission'],
+                    defaults={
+                        'is_active': item['is_active']
+                    }
+                )
+                if is_created:
+                    created.append(obj.id)
+                else:
+                    skipped.append(item)
+            return Response({'message': f'Загружено {len(created)} учебных планов', 'added': created, 'skipped': skipped}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class LoadSampleCompetencyData(APIView):
+    def post(self, request):
+        try:
+            json_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_competencies.json')
+            with open(json_path, encoding='utf-8') as f:
+                data = json.load(f)
+            created = []
+            for item in data:
+                obj, is_created = Competency.objects.get_or_create(code=item['code'], defaults=item)
+                if is_created:
+                    created.append(obj.code)
+            return Response({'message': f'Загружено {len(created)} компетенций', 'added': created}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class LoadSampleBaseDisciplineData(APIView):
+    def post(self, request):
+        try:
+            json_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_base_disciplines.json')
+            with open(json_path, encoding='utf-8') as f:
+                data = json.load(f)
+            created = []
+            for item in data:
+                obj, is_created = BaseDiscipline.objects.get_or_create(code=item['code'], defaults=item)
+                if is_created:
+                    created.append(obj.code)
+            return Response({'message': f'Загружено {len(created)} базовых дисциплин', 'added': created}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class LoadSampleDisciplineData(APIView):
+    def post(self, request):
+        try:
+            import json
+            import os
+            from django.conf import settings
+            from src.external.learning_analytics.data_formalization_submodule.models import Curriculum, BaseDiscipline, Discipline, Competency, Technology
+
+            # Пути к файлам
+            disciplines_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_disciplines.json')
+            competencies_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_competencies.json')
+            technologies_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_technologies.json')
+
+            curriculums_by_id = {c.id: c for c in Curriculum.objects.all()}
+            base_disciplines_by_id = {b.id: b for b in BaseDiscipline.objects.all()}
+
+            # Загружаем справочники компетенций и технологий
+            with open(competencies_path, encoding='utf-8') as f:
+                competencies_data = json.load(f)
+            with open(technologies_path, encoding='utf-8') as f:
+                technologies_data = json.load(f)
+
+            # Маппинг порядкового номера (1-based) -> code/name
+            competency_idx_to_code = [c['code'] for c in competencies_data]
+            technology_idx_to_name = [t['name'] for t in technologies_data]
+
+            # Получаем соответствия code → id для компетенций и name → id для технологий
+            competency_code_to_id = {c.code: c.id for c in Competency.objects.all()}
+            technology_name_to_id = {t.name: t.id for t in Technology.objects.all()}
+
+            with open(disciplines_path, encoding='utf-8') as f:
+                disciplines_data = json.load(f)
+
+            created = []
+            skipped = []
+            for item in disciplines_data:
+                curriculum_obj = curriculums_by_id.get(item['curriculum'])
+                base_discipline_obj = base_disciplines_by_id.get(item['base_discipline'])
+                if not curriculum_obj or not base_discipline_obj:
+                    skipped.append(item)
+                    continue
+
+                # Получаем реальные id компетенций по порядковым номерам
+                competency_ids = []
+                for idx in item.get('competencies', []):
+                    # индексация в json с 1, а в списке с 0
+                    if 1 <= idx <= len(competency_idx_to_code):
+                        code = competency_idx_to_code[idx-1]
+                        cid = competency_code_to_id.get(code)
+                        if cid:
+                            competency_ids.append(cid)
+                # Аналогично для технологий
+                technology_ids = []
+                for idx in item.get('technologies', []):
+                    if 1 <= idx <= len(technology_idx_to_name):
+                        name = technology_idx_to_name[idx-1]
+                        tid = technology_name_to_id.get(name)
+                        if tid:
+                            technology_ids.append(tid)
+
+                obj, is_created = Discipline.objects.get_or_create(
+                    curriculum=curriculum_obj,
+                    base_discipline=base_discipline_obj,
+                    code=item['code'],
+                    defaults={
+                        'name': item['name'],
+                        'semesters': item['semesters'],
+                        'contact_work_hours': item['contact_work_hours'],
+                        'independent_work_hours': item['independent_work_hours'],
+                        'control_work_hours': item['control_work_hours'],
+                    }
+                )
+                if is_created:
+                    created.append(obj.code)
+                    obj.technologies.set(technology_ids)
+                    obj.competencies.set(competency_ids)
+                else:
+                    skipped.append(item)
+            return Response({'message': f'Загружено {len(created)} дисциплин', 'added': created, 'skipped': skipped}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class LoadSampleVacancyData(APIView):
+    def post(self, request):
+        try:
+            with open(settings.BASE_DIR / 'external/learning_analytics/data/sample_vacancies.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            created = []
+            skipped = []
+            errors = []
+            
+            for item in data:
+                try:
+                    # Проверяем наличие обязательных полей
+                    required_fields = ['employer', 'title', 'description', 'requirements', 'responsibilities', 
+                                     'salary_min', 'salary_max', 'is_active', 'location', 'employment_type']
+                    if not all(key in item for key in required_fields):
+                        errors.append(f"Пропущены обязательные поля в записи: {item}")
+                        continue
+                    
+                    # Проверяем валидность данных
+                    if not isinstance(item['employer'], int):
+                        errors.append(f"Неверный формат employer в записи: {item}")
+                        continue
+                        
+                    if not isinstance(item['title'], str) or not item['title'].strip():
+                        errors.append(f"Неверный формат title в записи: {item}")
+                        continue
+                        
+                    if not isinstance(item['description'], str):
+                        errors.append(f"Неверный формат description в записи: {item}")
+                        continue
+                        
+                    if not isinstance(item['requirements'], str):
+                        errors.append(f"Неверный формат requirements в записи: {item}")
+                        continue
+                        
+                    if not isinstance(item['responsibilities'], str):
+                        errors.append(f"Неверный формат responsibilities в записи: {item}")
+                        continue
+                        
+                    if not isinstance(item['salary_min'], (int, float)) or item['salary_min'] < 0:
+                        errors.append(f"Неверный формат salary_min в записи: {item}")
+                        continue
+                        
+                    if not isinstance(item['salary_max'], (int, float)) or item['salary_max'] < 0:
+                        errors.append(f"Неверный формат salary_max в записи: {item}")
+                        continue
+                        
+                    if not isinstance(item['is_active'], bool):
+                        errors.append(f"Неверный формат is_active в записи: {item}")
+                        continue
+                        
+                    if not isinstance(item['location'], str) or not item['location'].strip():
+                        errors.append(f"Неверный формат location в записи: {item}")
+                        continue
+                        
+                    if not isinstance(item['employment_type'], str) or not item['employment_type'].strip():
+                        errors.append(f"Неверный формат employment_type в записи: {item}")
+                        continue
+                    
+                    # Проверяем существование работодателя
+                    try:
+                        employer = Employer.objects.get(id=item['employer'])
+                    except Employer.DoesNotExist:
+                        errors.append(f"Работодатель с id={item['employer']} не найден")
+                        continue
+                    
+                    # Создаем или получаем существующую вакансию
+                    vacancy_data = {
+                        'employer': employer,
+                        'title': item['title'],
+                        'description': item['description'],
+                        'requirements': item['requirements'],
+                        'responsibilities': item['responsibilities'],
+                        'salary_min': item['salary_min'],
+                        'salary_max': item['salary_max'],
+                        'is_active': item['is_active'],
+                        'location': item['location'],
+                        'employment_type': item['employment_type']
+                    }
+                    
+                    vacancy, created_flag = Vacancy.objects.get_or_create(
+                        title=item['title'],
+                        employer=employer,
+                        defaults=vacancy_data
+                    )
+                    
+                    # Обрабатываем технологии и компетенции
+                    if 'technologies' in item and isinstance(item['technologies'], list):
+                        try:
+                            technologies = Technology.objects.filter(id__in=item['technologies'])
+                            vacancy.technologies.set(technologies)
+                        except Exception as e:
+                            errors.append(f"Ошибка при установке технологий: {str(e)}")
+                    
+                    if 'competencies' in item and isinstance(item['competencies'], list):
+                        try:
+                            competencies = Competency.objects.filter(id__in=item['competencies'])
+                            vacancy.competencies.set(competencies)
+                        except Exception as e:
+                            errors.append(f"Ошибка при установке компетенций: {str(e)}")
+                    
+                    if created_flag:
+                        created.append(vacancy.title)
+                    else:
+                        skipped.append(vacancy.title)
+                        
+                except Exception as e:
+                    errors.append(f"Ошибка при обработке записи {item}: {str(e)}")
+                    continue
+            
+            response_data = {
+                'created_count': len(created),
+                'skipped_count': len(skipped),
+                'error_count': len(errors),
+                'created': created,
+                'skipped': skipped,
+                'errors': errors
+            }
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+            
+        except FileNotFoundError:
+            return Response(
+                {'error': 'Файл sample_vacancies.json не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except json.JSONDecodeError:
+            return Response(
+                {'error': 'Ошибка при чтении JSON файла'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Неожиданная ошибка: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class LoadSampleUCMData(APIView):
+    def post(self, request):
+        try:
+            json_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_ucms.json')
+            with open(json_path, encoding='utf-8') as f:
+                data = json.load(f)
+            created = []
+            for item in data:
+                obj, is_created = UCM.objects.get_or_create(user_id=item['user_id'], defaults=item)
+                if is_created:
+                    created.append(obj.user_id)
+            return Response({'message': f'Загружено {len(created)} UCM', 'added': created}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class DisciplineTechnologyRelationView(BaseAPIView):
+    @swagger_auto_schema(
+        operation_description="Получение связей между дисциплинами и технологиями",
+        manual_parameters=[
+            openapi.Parameter(
+                'discipline_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID дисциплины (опционально)",
+            ),
+            openapi.Parameter(
+                'technology_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID технологии (опционально)",
+            )
+        ],
+        responses={200: "Список связей дисциплина-технология", 400: "Ошибка"}
+    )
+    def get(self, request):
+        try:
+            discipline_id = request.query_params.get('discipline_id')
+            technology_id = request.query_params.get('technology_id')
+            query, params = get_discipline_technology_relations(
+                int(discipline_id) if discipline_id else None,
+                int(technology_id) if technology_id else None
+            )
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+                columns = [col[0] for col in cursor.description]
+                relations = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                return Response({
+                    'data': relations,
+                    'message': 'Связи успешно получены'
+                }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class DisciplineCompetencyRelationView(BaseAPIView):
+    @swagger_auto_schema(
+        operation_description="Получение связей между дисциплинами и компетенциями",
+        manual_parameters=[
+            openapi.Parameter(
+                'discipline_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID дисциплины (опционально)",
+            ),
+            openapi.Parameter(
+                'competency_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID компетенции (опционально)",
+            )
+        ],
+        responses={200: "Список связей дисциплина-компетенция", 400: "Ошибка"}
+    )
+    def get(self, request):
+        try:
+            discipline_id = request.query_params.get('discipline_id')
+            competency_id = request.query_params.get('competency_id')
+            query, params = get_discipline_competency_relations(
+                int(discipline_id) if discipline_id else None,
+                int(competency_id) if competency_id else None
+            )
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+                columns = [col[0] for col in cursor.description]
+                relations = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                return Response({
+                    'data': relations,
+                    'message': 'Связи успешно получены'
+                }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class VacancyTechnologyRelationView(BaseAPIView):
+    @swagger_auto_schema(
+        operation_description="Получение связей между вакансиями и технологиями",
+        manual_parameters=[
+            openapi.Parameter(
+                'vacancy_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID вакансии (опционально)",
+            ),
+            openapi.Parameter(
+                'technology_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID технологии (опционально)",
+            )
+        ],
+        responses={200: "Список связей вакансия-технология", 400: "Ошибка"}
+    )
+    def get(self, request):
+        try:
+            vacancy_id = request.query_params.get('vacancy_id')
+            technology_id = request.query_params.get('technology_id')
+            query, params = get_vacancy_technology_relations(
+                int(vacancy_id) if vacancy_id else None,
+                int(technology_id) if technology_id else None
+            )
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+                columns = [col[0] for col in cursor.description]
+                relations = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                return Response({
+                    'data': relations,
+                    'message': 'Связи успешно получены'
+                }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class VacancyCompetencyRelationView(BaseAPIView):
+    @swagger_auto_schema(
+        operation_description="Получение связей между вакансиями и компетенциями",
+        manual_parameters=[
+            openapi.Parameter(
+                'vacancy_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID вакансии (опционально)",
+            ),
+            openapi.Parameter(
+                'competency_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID компетенции (опционально)",
+            )
+        ],
+        responses={200: "Список связей вакансия-компетенция", 400: "Ошибка"}
+    )
+    def get(self, request):
+        try:
+            vacancy_id = request.query_params.get('vacancy_id')
+            competency_id = request.query_params.get('competency_id')
+            query, params = get_vacancy_competency_relations(
+                int(vacancy_id) if vacancy_id else None,
+                int(competency_id) if competency_id else None
+            )
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+                columns = [col[0] for col in cursor.description]
+                relations = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                return Response({
+                    'data': relations,
+                    'message': 'Связи успешно получены'
+                }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class VCMTechnologyRelationView(BaseAPIView):
+    @swagger_auto_schema(
+        operation_description="Получение связей между профилями вакансий и технологиями",
+        manual_parameters=[
+            openapi.Parameter(
+                'vcm_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID профиля вакансии (опционально)",
+            ),
+            openapi.Parameter(
+                'technology_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID технологии (опционально)",
+            )
+        ],
+        responses={200: "Список связей профиль-технология", 400: "Ошибка"}
+    )
+    def get(self, request):
+        try:
+            vcm_id = request.query_params.get('vcm_id')
+            technology_id = request.query_params.get('technology_id')
+            query, params = get_vcm_technology_relations(
+                int(vcm_id) if vcm_id else None,
+                int(technology_id) if technology_id else None
+            )
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+                columns = [col[0] for col in cursor.description]
+                relations = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                return Response({
+                    'data': relations,
+                    'message': 'Связи успешно получены'
+                }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class VCMCompetencyRelationView(BaseAPIView):
+    @swagger_auto_schema(
+        operation_description="Получение связей между профилями вакансий и компетенциями",
+        manual_parameters=[
+            openapi.Parameter(
+                'vcm_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID профиля вакансии (опционально)",
+            ),
+            openapi.Parameter(
+                'competency_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="ID компетенции (опционально)",
+            )
+        ],
+        responses={200: "Список связей профиль-компетенция", 400: "Ошибка"}
+    )
+    def get(self, request):
+        try:
+            vcm_id = request.query_params.get('vcm_id')
+            competency_id = request.query_params.get('competency_id')
+            query, params = get_vcm_competency_relations(
+                int(vcm_id) if vcm_id else None,
+                int(competency_id) if competency_id else None
+            )
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+                columns = [col[0] for col in cursor.description]
+                relations = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                return Response({
+                    'data': relations,
+                    'message': 'Связи успешно получены'
+                }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 

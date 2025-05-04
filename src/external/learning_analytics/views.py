@@ -245,4 +245,35 @@ class ClearTablesView(APIView):
             logger.error(f"Error clearing tables: {str(e)}")
             raise
 
+class LoadSampleEmployerData(APIView):
+    def post(self, request):
+        try:
+            import json
+            import os
+            from django.conf import settings
+            from src.external.learning_analytics.models import Employer
+
+            json_path = os.path.join(settings.BASE_DIR, 'external', 'learning_analytics', 'data', 'sample_employers.json')
+            with open(json_path, encoding='utf-8') as f:
+                employers_data = json.load(f).get('employers', [])
+
+            created = []
+            skipped = []
+            for item in employers_data:
+                obj, is_created = Employer.objects.get_or_create(
+                    company_name=item['company_name'],
+                    email=item['email'],
+                    defaults={
+                        'description': item.get('description', ''),
+                        'rating': item.get('rating', 0)
+                    }
+                )
+                if is_created:
+                    created.append(obj.company_name)
+                else:
+                    skipped.append(item)
+            return Response({'message': f'Загружено {len(created)} работодателей', 'added': created, 'skipped': skipped}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
