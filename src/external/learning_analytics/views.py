@@ -236,14 +236,35 @@ class ClearTablesView(APIView):
     @handle_db_errors
     def post(self, request):
         try:
+            import time
+            start_time = time.time()
+            
             with connection.cursor() as cursor:
-                clear_analytics_tables(cursor)
-                return Response({
-                    'message': 'Все таблицы успешно очищены'
-                }, status=status.HTTP_200_OK)
+                # Выполняем очистку таблиц
+                result = clear_analytics_tables(cursor)
+                
+                elapsed_time = time.time() - start_time
+                
+                # Форматируем сообщение о результатах
+                logger.info(f"Результаты очистки: очищено таблиц: {len(result.get('cleared_tables', []))}, "
+                           f"сброшено последовательностей: {len(result.get('reset_sequences', []))}")
+                
+                return Response(
+                    {
+                        "message": "Все таблицы успешно очищены",
+                        "execution_time": f"{elapsed_time:.2f} секунд",
+                        "result": result
+                    },
+                    status=status.HTTP_200_OK
+                )
         except Exception as e:
-            logger.error(f"Error clearing tables: {str(e)}")
-            raise
+            logger.error(f"Ошибка при очистке таблиц: {str(e)}")
+            return Response(
+                {
+                    "error": f"Произошла ошибка при очистке таблиц: {str(e)}"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class LoadSampleEmployerData(APIView):
     def post(self, request):

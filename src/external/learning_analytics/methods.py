@@ -87,37 +87,41 @@ def get_tables_info(cursor):
 
 @handle_db_errors
 def clear_analytics_tables(cursor):
-    """
-    Очищает все таблицы аналитического модуля и сбрасывает их sequences.
-    """
+    """Очистка всех таблиц аналитического модуля и сброс всех последовательностей"""
     try:
-        # Получаем список таблиц модуля
+        # Шаг 1: Получаем список всех таблиц с префиксом la_
         cursor.execute("""
             SELECT table_name 
             FROM information_schema.tables 
             WHERE table_schema = 'public' 
-            AND table_name LIKE 'la_%%'
+            AND table_name LIKE 'la_%'
         """)
-        tables = cursor.fetchall()
+        tables = [table[0] for table in cursor.fetchall()]
         
-        # Отключаем проверку foreign key для безопасной очистки
-        cursor.execute("SET CONSTRAINTS ALL DEFERRED")
+        logger.info(f"Всего таблиц для очистки: {len(tables)}. Список: {tables}")
         
+        
+        cleared_tables = []
+        
+        # Шаг 3: Очищаем каждую таблицу
         for table in tables:
-            table_name = table[0]
-            # Очищаем таблицу
-            cursor.execute(f'TRUNCATE TABLE "{table_name}" CASCADE')
-            # Сбрасываем sequence если она существует
-            cursor.execute(f"""
-                SELECT setval(
-                    pg_get_serial_sequence('{table_name}', 'id'),
-                    1,
-                    false
-                )
-            """)
+            try:
+                cursor.execute(f'TRUNCATE TABLE "{table}" CASCADE')
+                cleared_tables.append(table)
+                logger.info(f"Таблица {table} очищена")
+            except Exception as e:
+                logger.error(f"Ошибка при очистке таблицы {table}: {str(e)}")
         
-        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
-        return True
+        
+        return {
+            'cleared_tables': cleared_tables,
+
+        }
     except Exception as e:
-        logger.error(f"Error in clear_analytics_tables: {str(e)}")
-        raise
+        logger.error(f"Ошибка при очистке таблиц: {str(e)}")
+        # Убедимся, что ограничения включены обратно даже при ошибке
+        try:
+            cursor.execute("SET session_replication_role = DEFAULT")
+        except:
+            pass
+        raise e
