@@ -310,6 +310,7 @@ class ACM(models.Model):
         verbose_name = "Матрица академических компетенций"
         verbose_name_plural = "Матрицы академических компетенций"
         db_table = "la_df_academic_competence_matrix"
+        
 
 # Модель компетентностного профиля вакансии
 class VCM(models.Model):
