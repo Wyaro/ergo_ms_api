@@ -1,6 +1,20 @@
 import json
 import string
 
+def get_import_history(import_history_id: int = None):
+    """Получение данных о истории импорта"""
+    if import_history_id is not None:
+        return (
+            "SELECT * FROM la_df_import_history WHERE id = %s",
+            (import_history_id,)
+        )
+    return ("SELECT * FROM la_df_import_history", ())
+
+def get_import_stats():
+    """Получение данных о статистике импорта"""
+    return ("SELECT * FROM la_df_import_stats", ())
+
+
 def get_specialities(speciality_id: int = None):
     """Получение данных о специальностях"""
     if speciality_id is not None:
@@ -187,3 +201,21 @@ def get_vcm_competency_relations(vcm_id: int = None, competency_id: int = None):
     elif competency_id is not None:
         return (f"{base_query} WHERE c.id = %s", (competency_id,))
     return (base_query, ())
+
+# Новые функции для подсчета количества записей в таблицах
+
+def get_acm_count():
+    """Подсчет количества записей в таблице матриц академических компетенций"""
+    return ("SELECT COUNT(*) FROM la_df_academic_competence_matrix", ())
+
+def get_vcm_count():
+    """Подсчет количества записей в таблице профилей компетенций вакансий"""
+    return ("SELECT COUNT(*) FROM la_df_competency_profile_of_vacancy", ())
+
+def get_vcm_tech_rel_count():
+    """Подсчет количества связей между профилями компетенций вакансий и технологиями"""
+    return ("SELECT COUNT(*) FROM la_df_vcm_tech_rel", ())
+
+def get_vcm_comp_rel_count():
+    """Подсчет количества связей между профилями компетенций вакансий и компетенциями"""
+    return ("SELECT COUNT(*) FROM la_df_vcm_comp_rel", ())

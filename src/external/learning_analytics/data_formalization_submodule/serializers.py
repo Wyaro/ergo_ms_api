@@ -13,8 +13,25 @@ from src.external.learning_analytics.data_formalization_submodule.models import 
     ACM,                        # Модель матрицы академических компетенций
     VCM,                        # Модель профиля компетенций вакансии
     UCM,                        # Модель матрицы компетенций пользователя
-    
+
+    ImportHistory,             # Модель истории импорта
+    ImportStats,               # Модель статистики импорта
 )
+
+class ImportHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImportHistory
+        fields = ['id', 'timestamp', 'data_type', 'file_name', 'records_count', 'status']
+
+class ImportHistoryDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImportHistory
+        fields = ['id', 'timestamp', 'data_type', 'file_name', 'records_count', 'status']
+
+class ImportStatsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImportStats
+        fields = ['id', 'sum_of_imported_files', 'sum_of_imported_records', 'last_file_timestamp']
 
 class SpecialitySerializer(serializers.ModelSerializer):
     class Meta:

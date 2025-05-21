@@ -4,8 +4,94 @@ from src.external.learning_analytics.models import (
     Employer
 )
 
+# Модель ImportHistory хранит записи истории импорта данных.
+class ImportHistory(models.Model):
+    """
+    Модель ImportHistory хранит записи истории импорта данных.
+    
+    Attributes:
+        timestamp (DateTimeField): Дата и время импорта
+        data_type (CharField): Тип импортируемых данных
+        file_name (CharField): Имя импортируемого файла
+        records_count (PositiveIntegerField): Количество записей в файле
+        status (CharField): Статус импорта (успех, предупреждение, ошибка)
+    """
+    DATA_TYPE_CHOICES = [
+        ('curriculum', 'Учебный план'),
+        ('competencies', 'Компетенции'),
+        ('technologies', 'Технологии'),
+        ('vacancies', 'Вакансии'),
+        ('custom', 'Пользовательский формат'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('success', 'Успешно'),
+        ('warning', 'С предупреждениями'),
+        ('error', 'С ошибками'),
+    ]
+    
+    timestamp = models.DateTimeField(auto_now_add=True, verbose_name="Дата и время импорта")
+    data_type = models.CharField(max_length=50, choices=DATA_TYPE_CHOICES, verbose_name="Тип данных")
+    file_name = models.CharField(max_length=255, verbose_name="Имя файла")
+    records_count = models.PositiveIntegerField(verbose_name="Количество записей", validators=[MinValueValidator(0)])
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, verbose_name="Статус импорта")
+    
+    def __str__(self):
+        return f"{self.file_name} ({self.timestamp.strftime('%d.%m.%Y %H:%M')})"
+    
+    class Meta:
+        verbose_name = "История импорта"
+        verbose_name_plural = "История импортов"
+        db_table = "la_df_import_history"
+        ordering = ["-timestamp"]
 
-# Модель специальности (для обучающегося студента)
+# Модель ImportStats хранит статистику импорта данных.
+class ImportStats(models.Model):
+    """
+    Модель ImportStats хранит статистику импорта данных.
+     
+    Attributes:
+        sum_of_imported_files (PositiveIntegerField): Количество импортированных файлов.
+        sum_of_imported_records (PositiveIntegerField): Количество импортированных записей.
+        last_file_timestamp (DateTimeField): Дата и время последнего импортированного файла.
+    """
+
+    sum_of_imported_files = models.PositiveIntegerField(verbose_name="Количество импортированных файлов", default=0)
+    sum_of_imported_records = models.PositiveIntegerField(verbose_name="Количество импортированных записей", default=0)
+    last_file_timestamp = models.DateTimeField(verbose_name="Дата и время последнего импортированного файла", null=True, blank=True)
+
+    def __str__(self):
+        return f"Статистика импорта данных: {self.sum_of_imported_files} файлов, {self.sum_of_imported_records} записей, последний импорт: {self.last_file_timestamp}"
+    
+    @classmethod
+    def get_or_create_initial_stats(cls):
+        """
+        Получает существующую запись статистики импорта или создает новую с нулевыми значениями.
+        Гарантирует наличие записи в таблице.
+        """
+        try:
+            stats = cls.objects.first()
+            if not stats:
+                stats = cls.objects.create(
+                    sum_of_imported_files=0,
+                    sum_of_imported_records=0,
+                    last_file_timestamp=None
+                )
+            return stats
+        except Exception as e:
+            # В случае ошибки создаем новую запись
+            return cls.objects.create(
+                sum_of_imported_files=0,
+                sum_of_imported_records=0,
+                last_file_timestamp=None
+            )
+    
+    class Meta:
+        verbose_name = "Статистика импорта данных"
+        verbose_name_plural = "Статистика импорта данных"
+        db_table = "la_df_import_stats"
+
+# Модель специальности (для обучающегося студента).
 class Speciality(models.Model):
     """
     Модель Speciality представляет собой информацию о специальности (направлении подготовки).

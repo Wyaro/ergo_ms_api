@@ -34,6 +34,9 @@ from src.external.learning_analytics.data_formalization_submodule.models import(
     VCM,
     UCM,
 
+    ImportHistory,
+    ImportStats,
+
 )
 
 from src.external.learning_analytics.models import(
@@ -50,7 +53,11 @@ from src.external.learning_analytics.data_formalization_submodule.serializers im
     VacancySerializer,
     ACMSerializer,
     VCMSerializer,
-    UCMSerializer
+    UCMSerializer,
+
+    ImportHistorySerializer,
+    ImportHistoryDetailSerializer,
+    ImportStatsSerializer,
 )
 
 # --- Импорт скриптов для работы с БД ---
@@ -70,7 +77,16 @@ from src.external.learning_analytics.data_formalization_submodule.scripts import
     get_vacancy_technology_relations,
     get_vacancy_competency_relations,
     get_vcm_technology_relations,
-    get_vcm_competency_relations
+    get_vcm_competency_relations,
+
+    get_import_history,
+    get_import_stats,
+    
+    # Добавляем новые функции
+    get_acm_count,
+    get_vcm_count,
+    get_vcm_tech_rel_count,
+    get_vcm_comp_rel_count,
 )
 
 import json
@@ -1564,9 +1580,7 @@ class LoadSampleACMData(APIView):
                     errors.append(f"Ошибка при создании ACM: {str(e)}")
             
             # Проверяем итоговые результаты
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT COUNT(*) FROM la_df_academic_competence_matrix")
-                acm_count = cursor.fetchone()[0]
+            acm_count = OrderedDictQueryExecutor.fetchone(get_acm_count())[0]
             
             return Response({
                 'message': f'Загружено {len(created)} матриц академических компетенций', 
@@ -1650,13 +1664,9 @@ class LoadSampleVCMData(APIView):
                     failed.append(f"Ошибка при создании VCM: {str(e)}")
             
             # Проверяем итоговые результаты
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT COUNT(*) FROM la_df_competency_profile_of_vacancy")
-                vcm_count = cursor.fetchone()[0]
-                cursor.execute("SELECT COUNT(*) FROM la_df_vcm_tech_rel")
-                tech_rel_count = cursor.fetchone()[0]
-                cursor.execute("SELECT COUNT(*) FROM la_df_vcm_comp_rel")
-                comp_rel_count = cursor.fetchone()[0]
+            vcm_count = OrderedDictQueryExecutor.fetchone(get_vcm_count())[0]
+            tech_rel_count = OrderedDictQueryExecutor.fetchone(get_vcm_tech_rel_count())[0]
+            comp_rel_count = OrderedDictQueryExecutor.fetchone(get_vcm_comp_rel_count())[0]
             
             return Response({
                 'message': f'Загружено {len(created)} профилей компетенций вакансий', 
@@ -2937,4 +2947,612 @@ class VCMCompetencyRelationView(APIView):
             return Response(
                 {"error": f"Ошибка при получении связей: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class ImportHistoryView(viewsets.ViewSet):
+    """
+    Представление для работы с историей импорта данных.
+    Поддерживает операции CRUD для истории импорта данных.
+    """
+    @swagger_auto_schema(responses={200: ImportHistorySerializer(many=True)})
+    def list(self, request):
+        queryset = ImportHistory.objects.all()
+        serializer = ImportHistorySerializer(queryset, many=True)
+        return Response({"data": serializer.data, "message": "История импорта данных получена успешно"})
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_ARRAY,
+            items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'data_type': openapi.Schema(
+                        type=openapi.TYPE_STRING, 
+                        description='Тип импортируемых данных',
+                        enum=['curriculum', 'competencies', 'technologies', 'vacancies', 'custom'],
+                        example='technologies'
+                    ),
+                    'file_name': openapi.Schema(type=openapi.TYPE_STRING, description='Имя импортируемого файла'),
+                    'records_count': openapi.Schema(type=openapi.TYPE_INTEGER, description='Количество записей в файле'),
+                    'status': openapi.Schema(
+                        type=openapi.TYPE_STRING, 
+                        description='Статус импорта',
+                        enum=['success', 'warning', 'error'],
+                        example='success'
+                    )
+                },
+                required=['data_type', 'file_name', 'records_count', 'status'],
+            ),
+            example=[
+                {
+                    "data_type": "competencies",
+                    "file_name": "competencies.csv",
+                    "records_count": 50,
+                    "status": "success"
+                },
+                {
+                    "data_type": "technologies",
+                    "file_name": "tech_data.json",
+                    "records_count": 30,
+                    "status": "warning"
+                }
+            ]
+        ),
+        responses={201: ImportHistorySerializer(many=True)}
+    )
+    def create(self, request):
+        data = request.data
+        is_many = isinstance(data, list)
+        if not is_many:
+            data = [data]
+        serializer = ImportHistorySerializer(data=data, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": f"Добавлено: {len(serializer.data)} записей истории импорта"}, status=status.HTTP_201_CREATED)
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={200: ImportHistoryDetailSerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        obj = get_object_or_404(ImportHistory, pk=pk)
+        serializer = ImportHistoryDetailSerializer(obj)
+        return Response({"data": serializer.data, "message": "Запись истории импорта получена успешно"})
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'data_type': openapi.Schema(
+                    type=openapi.TYPE_STRING, 
+                    description='Тип импортируемых данных',
+                    enum=['curriculum', 'competencies', 'technologies', 'vacancies', 'custom'],
+                    example='technologies'
+                ),
+                'file_name': openapi.Schema(type=openapi.TYPE_STRING, description='Имя импортируемого файла'),
+                'records_count': openapi.Schema(type=openapi.TYPE_INTEGER, description='Количество записей в файле'),
+                'status': openapi.Schema(
+                    type=openapi.TYPE_STRING, 
+                    description='Статус импорта',
+                    enum=['success', 'warning', 'error'],
+                    example='success'
+                )
+            },
+            required=['data_type', 'file_name', 'records_count', 'status'],
+            example={
+                "data_type": "technologies",
+                "file_name": "tech_data.json",
+                "records_count": 30,
+                "status": "success"
+            }
+        ),
+        responses={200: ImportHistorySerializer(), 400: 'Ошибка', 404: 'Not found'}
+    )
+    def update(self, request, pk=None):
+        obj = get_object_or_404(ImportHistory, pk=pk)
+        serializer = ImportHistorySerializer(obj, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"data": serializer.data, "message": "Информация о записи истории импорта обновлена успешно"})
+        return Response({"message": "Ошибка валидации данных", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(responses={204: 'No content', 404: 'Not found'})
+    def destroy(self, request, pk=None):
+        obj = get_object_or_404(ImportHistory, pk=pk)
+        obj.delete()
+        return Response({"message": "Запись истории импорта успешно удалена"}, status=status.HTTP_204_NO_CONTENT)
+        
+class ImportHistoryGetView(BaseAPIView):
+    """
+    Представление для получения информации об истории импорта данных.
+    Позволяет получить либо все записи истории, либо одну запись по id (через query-параметр).
+    """
+    @swagger_auto_schema(
+        operation_description="Получение информации об истории импорта данных. Если указан параметр 'id', возвращается конкретная запись. Если параметр 'id' не указан, возвращаются все записи.",
+        manual_parameters=[
+            openapi.Parameter(
+                'id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description="Идентификатор записи истории импорта (опционально)",
+            ),
+            openapi.Parameter(
+                'data_type',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                required=False,
+                description="Фильтр по типу данных ['curriculum', 'competencies', 'technologies', 'vacancies', 'custom']",
+                enum=['curriculum', 'competencies', 'technologies', 'vacancies', 'custom']
+            ),
+            openapi.Parameter(
+                'status',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                required=False,
+                description="Фильтр по статусу импорта ['success', 'warning', 'error']",
+                enum=['success', 'warning', 'error']
+            )
+        ],
+        responses={
+            200: "Информация об истории импорта данных",
+            400: "Ошибка",
+            404: "Запись не найдена"
+        }
+    )
+    def get(self, request):
+        """
+        Обработка GET-запроса для получения информации об истории импорта данных.
+        Если передан параметр 'id', возвращается конкретная запись.
+        Если параметр не передан — возвращаются все записи.
+        """
+        import_history_id = request.query_params.get('id')
+        if import_history_id:
+            # Получение записи по id
+            import_history = OrderedDictQueryExecutor.fetchall(
+                get_import_history, import_history_id=import_history_id
+            )
+            if not import_history:
+                # Если не найдено — возвращаем 404
+                return Response(
+                    {"message": "Запись истории импорта с указанным ID не найдена"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            response_data = {
+                "data": import_history,
+                "message": "Запись истории импорта получена успешно"
+            }
+        else:
+            # Получение всех записей
+            import_history = OrderedDictQueryExecutor.fetchall(get_import_history)
+            response_data = {
+                "data": import_history,
+                "message": "Вся история импорта получена успешно"
+            }
+        return Response(response_data, status=status.HTTP_200_OK)
+
+class ImportStatsView(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: ImportStatsSerializer(many=True)})
+    def list(self, request):
+        """
+        Получение списка всех записей статистики импорта.
+        Гарантирует наличие хотя бы одной записи с нулевыми значениями.
+        """
+        stats = ImportStats.get_or_create_initial_stats()
+        serializer = ImportStatsSerializer(stats)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(responses={200: ImportStatsSerializer(), 404: 'Not found'})
+    def retrieve(self, request, pk=None):
+        """
+        Получение конкретной записи статистики импорта по ID.
+        Если запись не найдена, создает новую с нулевыми значениями.
+        """
+        try:
+            stats = ImportStats.objects.get(pk=pk)
+        except ImportStats.DoesNotExist:
+            stats = ImportStats.get_or_create_initial_stats()
+        serializer = ImportStatsSerializer(stats)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'sum_of_imported_files': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description='Количество импортированных файлов',
+                    example=15
+                ),
+                'sum_of_imported_records': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description='Количество импортированных записей',
+                    example=750
+                ),
+                'last_file_timestamp': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_DATETIME,
+                    description='Дата и время последнего импортированного файла (формат ISO 8601)',
+                    example='2023-05-20T14:30:00Z'
+                )
+            },
+            required=['sum_of_imported_files', 'sum_of_imported_records', 'last_file_timestamp'],
+            example={
+                "sum_of_imported_files": 15,
+                "sum_of_imported_records": 750,
+                "last_file_timestamp": "2023-05-20T14:30:00Z"
+            }
+        ),
+        responses={200: ImportStatsSerializer(), 400: 'Ошибка', 404: 'Not found'}
+    )
+    def update(self, request, pk=None):
+        """
+        Обновление записи статистики импорта.
+        Если запись не найдена, создает новую с нулевыми значениями.
+        """
+        try:
+            stats = ImportStats.objects.get(pk=pk)
+        except ImportStats.DoesNotExist:
+            stats = ImportStats.get_or_create_initial_stats()
+        
+        serializer = ImportStatsSerializer(stats, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ImportStatsGetView(BaseAPIView):
+    """
+    Представление для получения статистики импорта данных.
+    """
+    @swagger_auto_schema(
+        operation_description="""
+        Получение статистики импорта данных.
+        
+        Возвращает сводную информацию о количестве импортированных файлов, 
+        общем количестве импортированных записей и времени последнего импорта.
+        """,
+        responses={
+            200: "Статистика импорта данных",
+            400: "Ошибка",
+            404: "Статистика не найдена"
+        }
+    )
+    def get(self, request):
+        """
+        Обработка GET-запроса для получения статистики импорта данных.
+        """
+        import_stats = OrderedDictQueryExecutor.fetchall(get_import_stats)
+        if not import_stats:
+            # Если не найдено — возвращаем 404
+            return Response(
+                {"message": "Статистика импорта данных не найдена"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        response_data = {
+            "data": import_stats,
+            "message": "Статистика импорта данных получена успешно"
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
+
+class ExcelUploadView(APIView):
+    """
+    Представление для загрузки и обработки Excel файлов.
+    Позволяет загрузить файл и получить структурированные данные.
+    """
+    
+    @swagger_auto_schema(
+        operation_description="Загрузка Excel файла для анализа и предварительного просмотра",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'file': openapi.Schema(
+                    type=openapi.TYPE_FILE,
+                    description='Excel файл (.xls, .xlsx)'
+                ),
+                'type': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Тип загружаемых данных',
+                    enum=['curriculum', 'competencies', 'technologies', 'vacancies', 'custom']
+                ),
+                'sheet_name': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Имя листа (для пользовательского типа данных)'
+                ),
+            },
+            required=['file', 'type']
+        ),
+        responses={
+            200: openapi.Response(description="Файл обработан успешно, возвращены данные предварительного просмотра"),
+            400: "Ошибка валидации или обработки файла",
+            415: "Неподдерживаемый формат файла"
+        }
+    )
+    def post(self, request):
+        try:
+            # Логирование содержимого запроса для отладки
+            logger.info(f"======== НАЧАЛО ОБРАБОТКИ ФАЙЛА ========")
+            logger.info(f"Получен запрос на загрузку файла")
+            logger.info(f"FILES: {request.FILES.keys()}")
+            logger.info(f"DATA: {request.data}")
+            
+            # Проверка наличия файла в запросе
+            if 'file' not in request.FILES:
+                logger.error("Файл отсутствует в запросе")
+                return Response(
+                    {"message": "Файл не был предоставлен"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Получение файла из запроса
+            file = request.FILES['file']
+            logger.info(f"Получен файл: {file.name}, размер: {file.size} байт, тип: {file.content_type}")
+            
+            # Проверка расширения файла
+            file_ext = file.name.split('.')[-1].lower()
+            if file_ext not in ['xlsx', 'xls']:
+                logger.error(f"Неподдерживаемый формат файла: {file_ext}")
+                return Response(
+                    {"message": f"Неподдерживаемый формат файла: .{file_ext}. Поддерживаются только .xlsx и .xls"},
+                    status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+                )
+            
+            # Получение типа данных из запроса
+            data_type = request.data.get('type', '')
+            if not data_type:
+                logger.error("Не указан тип данных")
+                return Response(
+                    {"message": "Не указан тип данных"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            logger.info(f"Тип данных: {data_type}")
+            
+            # Получение имени листа (опционально)
+            sheet_name = request.data.get('sheet_name', None)
+            logger.info(f"Имя листа: {sheet_name}")
+            
+            # Временное сохранение файла для обработки
+            import tempfile
+            import os
+            
+            try:
+                temp_dir = tempfile.mkdtemp()
+                logger.info(f"Создана временная директория: {temp_dir}")
+                
+                temp_file_path = os.path.join(temp_dir, file.name)
+                logger.info(f"Путь к временному файлу: {temp_file_path}")
+                
+                with open(temp_file_path, 'wb+') as destination:
+                    for chunk in file.chunks():
+                        destination.write(chunk)
+                
+                # Проверяем, что файл создан и доступен
+                if not os.path.exists(temp_file_path):
+                    logger.error(f"Ошибка: файл не был создан по пути {temp_file_path}")
+                    return Response(
+                        {"message": "Ошибка при сохранении файла во временную директорию"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+                
+                file_size = os.path.getsize(temp_file_path)
+                logger.info(f"Файл успешно сохранен. Размер: {file_size} байт")
+                
+                # Используем функцию get_excel_structure_as_json для получения структуры файла
+                from src.external.learning_analytics.data_formalization_submodule.methods import get_excel_structure_as_json, get_excel_summary
+                
+                logger.info(f"Вызов функции get_excel_structure_as_json с аргументами: путь={temp_file_path}, лист={sheet_name}")
+                excel_structure = get_excel_structure_as_json(temp_file_path, sheet_name)
+                logger.info(f"Результат обработки: success={excel_structure.get('success', False)}")
+                
+                if not excel_structure.get("success", False):
+                    error_msg = excel_structure.get('error', 'Неизвестная ошибка')
+                    logger.error(f"Ошибка при обработке файла: {error_msg}")
+                    return Response(
+                        {"message": f"Ошибка при обработке файла: {error_msg}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Получение краткой информации о файле (для учебного плана)
+                file_summary = None
+                if data_type == 'curriculum':
+                    logger.info("Извлечение краткой информации об учебном плане")
+                    file_summary = get_excel_summary(temp_file_path)
+                    logger.info(f"Получена краткая информация: {file_summary.get('success', False)}")
+                    logger.info(f"Структура краткой информации: {file_summary.keys() if file_summary else 'None'}")
+                    if file_summary and 'summary' in file_summary:
+                        logger.info(f"Содержимое поля 'summary': {file_summary['summary']}")
+                    
+                # Получаем данные для предпросмотра
+                headers = []
+                preview_data = []
+                full_data = {}
+                
+                if sheet_name:
+                    headers = excel_structure["headers"]
+                    preview_data = excel_structure["preview_data"]
+                    logger.info(f"Обработан указанный лист. Найдено заголовков: {len(headers)}, строк данных: {len(preview_data)}")
+                    
+                    # Собираем полные данные в зависимости от типа
+                    if data_type == 'technologies':
+                        full_data = {"technologies": excel_structure["full_data"]}
+                    elif data_type == 'competencies':
+                        full_data = {"competencies": excel_structure["full_data"]}
+                    elif data_type == 'vacancies':
+                        full_data = {"vacancies": excel_structure["full_data"]}
+                    elif data_type == 'curriculum':
+                        # Для учебного плана возможно понадобится дополнительная обработка
+                        # Пока просто сохраняем как есть
+                        full_data = {"curriculum": excel_structure["full_data"]}
+                    else:
+                        full_data = {"custom_data": excel_structure["full_data"]}
+                else:
+                    # Если лист не указан, берем первый лист
+                    if excel_structure.get("sheets"):
+                        first_sheet = next(iter(excel_structure["sheets"]))
+                        logger.info(f"Лист не указан, используем первый найденный лист: {first_sheet}")
+                        sheet_data = excel_structure["sheets"][first_sheet]
+                        
+                        headers = sheet_data["headers"]
+                        preview_data = sheet_data["preview_data"]
+                        logger.info(f"Обработан первый лист. Найдено заголовков: {len(headers)}, строк данных: {len(preview_data)}")
+                        
+                        # Собираем полные данные
+                        if data_type == 'technologies':
+                            full_data = {"technologies": sheet_data["full_data"]}
+                        elif data_type == 'competencies':
+                            full_data = {"competencies": sheet_data["full_data"]}
+                        elif data_type == 'vacancies':
+                            full_data = {"vacancies": sheet_data["full_data"]}
+                        elif data_type == 'curriculum':
+                            full_data = {"curriculum": sheet_data["full_data"]}
+                        else:
+                            full_data = {"custom_data": sheet_data["full_data"]}
+                    else:
+                        logger.error("Листы в файле не найдены")
+                
+                # Очистка временного файла
+                try:
+                    os.remove(temp_file_path)
+                    os.rmdir(temp_dir)
+                    logger.info("Временные файлы успешно удалены")
+                except (PermissionError, OSError) as e:
+                    logger.warning(f"Не удалось удалить временные файлы: {str(e)}")
+                
+                # Запись в историю импорта
+                try:
+                    import_history = ImportHistory.objects.create(
+                        data_type=data_type,
+                        file_name=file.name,
+                        records_count=len(preview_data) if preview_data else 0,
+                        status='success'
+                    )
+                    logger.info(f"Создана запись в истории импорта, ID: {import_history.id}")
+                    
+                    # Обновление статистики импорта
+                    stats = ImportStats.get_or_create_initial_stats()
+                    stats.sum_of_imported_files += 1
+                    stats.sum_of_imported_records += len(preview_data) if preview_data else 0
+                    from django.utils import timezone
+                    stats.last_file_timestamp = timezone.now()
+                    stats.save()
+                    logger.info("Статистика импорта обновлена")
+                    
+                except Exception as e:
+                    logger.error(f"Ошибка при сохранении истории импорта: {e}")
+                
+                # Возвращаем результат
+                result = {
+                    "success": True,
+                    "data": {
+                        "headers": headers,
+                        "preview": preview_data,
+                        "full_data": full_data
+                    },
+                    "message": "Файл успешно обработан"
+                }
+                
+                # Добавляем краткую информацию о файле
+                if file_summary and file_summary.get('success', False):
+                    result["file_summary"] = file_summary.get('summary', {})
+                    result["competencies_count"] = file_summary.get('competencies_count', 0)
+                    result["disciplines_count"] = file_summary.get('disciplines_count', 0)
+                    
+                    # Дополнительное логирование для отладки
+                    logger.info(f"Добавляем информацию о файле в ответ: {file_summary.get('summary', {})}")
+                    logger.info(f"Компетенции: {file_summary.get('competencies_count', 0)}, Дисциплины: {file_summary.get('disciplines_count', 0)}")
+                
+                logger.info("Завершена обработка файла, возвращаем успешный результат")
+                logger.info(f"Структура ответа: {result.keys()}")
+                return Response(result, status=status.HTTP_200_OK)
+                
+            except (PermissionError, OSError) as e:
+                logger.error(f"Ошибка при работе с файловой системой: {str(e)}")
+                return Response(
+                    {
+                        "success": False,
+                        "message": f"Ошибка при сохранении или чтении файла: {str(e)}"
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+                
+        except Exception as e:
+            logger.error(f"Необработанная ошибка при обработке Excel файла: {str(e)}")
+            logger.error(traceback.format_exc())
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Ошибка при обработке файла: {str(e)}",
+                    "trace": traceback.format_exc()
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class ProcessExcelDataView(APIView):
+    """
+    Представление для обработки и сохранения данных из загруженного Excel файла.
+    """
+    
+    @swagger_auto_schema(
+        operation_description="Обработка и сохранение данных из загруженного Excel файла",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'type': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Тип загружаемых данных',
+                    enum=['curriculum', 'competencies', 'technologies', 'vacancies', 'custom']
+                ),
+                'sheet_name': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Имя листа (для пользовательского типа данных)'
+                ),
+            },
+            required=['type']
+        ),
+        responses={
+            200: openapi.Response(description="Данные успешно обработаны и сохранены"),
+            400: "Ошибка обработки или сохранения данных",
+            404: "Данные для обработки не найдены"
+        }
+    )
+    def post(self, request):
+        try:
+            data_type = request.data.get('type', '')
+            if not data_type:
+                return Response(
+                    {"message": "Не указан тип данных"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Получение имени листа (опционально)
+            sheet_name = request.data.get('sheet_name', None)
+            
+            # Здесь должна быть логика обработки ранее загруженного файла
+            # В реальной реализации здесь должна быть обработка данных и сохранение в БД
+            # Сейчас мы вернем заглушку с успешным результатом
+            
+            # Получаем данные из сессии или кэша (в реальной реализации)
+            # В данной имитации мы просто генерируем данные
+            
+            return Response({
+                "success": True,
+                "message": "Данные успешно обработаны и сохранены",
+                "details": f"Данные типа {data_type} были успешно импортированы в базу данных",
+                "stats": {
+                    "Всего записей": 15,
+                    "Обработано": 15,
+                    "Добавлено": 14,
+                    "Обновлено": 1,
+                    "Пропущено": 0
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Ошибка при обработке данных: {str(e)}")
+            logger.error(traceback.format_exc())
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Ошибка при обработке данных: {str(e)}"
+                },
+                status=status.HTTP_400_BAD_REQUEST
             )

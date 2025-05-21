@@ -26,6 +26,14 @@ from src.external.learning_analytics.data_formalization_submodule.views import (
     VacancyCompetencyRelationView,
     VCMTechnologyRelationView,
     VCMCompetencyRelationView,
+
+    ImportHistoryView,
+    ImportHistoryGetView,
+    ImportStatsView,
+    ImportStatsGetView,
+
+    ExcelUploadView,
+    ProcessExcelDataView,
 )
 
 urlpatterns = [
@@ -77,4 +85,18 @@ urlpatterns = [
     path('relations/vacancy-competency/', VacancyCompetencyRelationView.as_view(), name='vacancy-competency-relations'),
     path('relations/vcm-technology/', VCMTechnologyRelationView.as_view(), name='vcm-technology-relations'),
     path('relations/vcm-competency/', VCMCompetencyRelationView.as_view(), name='vcm-competency-relations'),
+
+    # Маршруты для ImportHistory
+    path('import_history/query/', ImportHistoryGetView.as_view(), name='import-history-get'),
+    path('import_history/', ImportHistoryView.as_view({'get': 'list', 'post': 'create'}), name='import-history-list'),
+    path('import_history/<int:pk>/', ImportHistoryView.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name='import-history-detail'),
+    
+    # Маршруты для ImportStats
+    path('import_stats/query/', ImportStatsGetView.as_view(), name='import-stats-get'),
+    path('import_stats/', ImportStatsView.as_view({'get': 'list'}), name='import-stats-list'),
+    path('import_stats/<int:pk>/', ImportStatsView.as_view({'get': 'retrieve', 'put': 'update'}), name='import-stats-detail'),
+
+    # Маршруты для работы с Excel файлами
+    path('upload-excel/', ExcelUploadView.as_view(), name='upload-excel'),
+    path('process-excel/', ProcessExcelDataView.as_view(), name='process-excel'),
 ]
